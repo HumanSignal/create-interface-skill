@@ -47,6 +47,29 @@ literal:
 })
 ```
 
+## Start a Local Interface
+
+If `label-studio-sdk` is installed, create a local interface directory first:
+
+```bash
+label-studio-sdk interface init ./my-interface
+cd ./my-interface
+```
+
+This creates a small editable workspace:
+
+```text
+Screen.jsx
+task.json
+scenarios.js
+```
+
+- `Screen.jsx` is the interface source file.
+- `task.json` is sample task data for local preview and validation.
+- `scenarios.js` contains browser-driven interaction checks.
+
+After the scaffold exists, ask your agent to edit `Screen.jsx` using this skill.
+
 ## Local Validation
 
 If `label-studio-sdk` is installed, validate from a local interface directory:
