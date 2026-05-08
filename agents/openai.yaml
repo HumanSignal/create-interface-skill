@@ -1,0 +1,4 @@
+interface:
+  display_name: "Create Labeling Interface"
+  short_description: "Build HumanSignal labeling UIs"
+  default_prompt: "Use $create-interface-skill to build a labeling interface for text classification."
