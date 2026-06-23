@@ -78,6 +78,8 @@ Use these references as needed:
   and common breakages.
 - `references/runtime-contract.md`: `DynamicScreenProps`, regions, relations,
   and shell slots.
+- `references/text-spans.md`: text span/NER offset rules, highlight rendering,
+  and selection offset helpers.
 - `references/examples.md`: complete text classification example and reusable
   serialization patterns.
 - `references/claude-design-conversion.md`: convert Claude Design or React

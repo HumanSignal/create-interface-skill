@@ -112,6 +112,7 @@ references/
   claude-design-conversion.md
   examples.md
   runtime-contract.md
+  text-spans.md
 ```
 
 `SKILL.md` contains the core workflow and hard rules. The reference files are

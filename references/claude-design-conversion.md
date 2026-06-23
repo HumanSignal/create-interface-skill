@@ -1,105 +1,69 @@
 # Claude Design and React Prototype Conversion
 
-Use this reference when converting a Claude Design bundle, React mockup, or
-single-page prototype into a HumanSignal Interface.
+Use this reference when converting a Claude Design (claude.ai/design) bundle, React mockup, or single-page prototype into a HumanSignal Interface.
 
 ## Target
 
-The output is still one JSX file with a trailing object literal. Do not preserve
-the prototype's app bootstrapping, package imports, external CSS files, or
-host-specific postMessage hooks.
+The output is always a single JSX file ending with a parenthesized object literal. Do not preserve the prototype's package imports, external css files, app bootstrapping (`ReactDOM.createRoot`), or host-specific postMessage/tweak panels.
 
-## Conversion Checklist
+## Fetch and Unpack (Claude Design)
 
-1. Read any chat transcript, product brief, or prototype notes first. They often
-   define the real annotation output and which controls are demo-only.
-2. Identify task data fields. Replace mock constants with `getField(task.data,
-   "field.path")` where data varies by task.
-3. Identify annotation state. Replace local prototype state with
-   `props.regions` and shell mutation callbacks.
-4. Convert project-level controls into `paramsSchema`.
-5. Write `outputSchema`, `getResults`, and `parseResults` from the annotation
-   output, not from the visual design alone.
-6. Inline required styles, SVGs, and small fixtures.
-7. Remove app bootstrapping and end with the Interface object literal.
+Claude Design design links return a gzipped tar archive from `https://api.anthropic.com/v1/design/h/<id>`. Create a temporary directory, download the archive, and unpack it:
 
-## Common Mappings
+On Unix-like systems (macOS, Linux):
+```bash
+DESIGN_URL='https://api.anthropic.com/v1/design/h/<id>'
+mkdir -p ./claude-design && cd ./claude-design
+curl -L "$DESIGN_URL" -o design.tar.gz
+tar -xzf design.tar.gz
+```
 
-| Prototype source | Interface target |
+On Windows (PowerShell):
+```powershell
+$DESIGN_URL="https://api.anthropic.com/v1/design/h/<id>"
+New-Item -ItemType Directory -Force -Path .\claude-design
+Set-Location .\claude-design
+Invoke-WebRequest -Uri $DESIGN_URL -OutFile design.tar.gz
+tar -xzf design.tar.gz
+```
+
+
+### Bundle Layout
+
+```text
+<project-name>/
+├── README.md                 # boilerplate handoff instructions
+├── chats/chat*.md            # design conversation — read first for intent
+└── project/
+    ├── index.html            # entry — defines script load order
+    ├── colors_and_type.css   # CSS variables
+    ├── fonts/                # web fonts
+    ├── assets/icons/*.svg    # icon sprites
+    └── src/*.jsx             # components (global scope, no imports/exports)
+```
+
+Read `chats/chat*.md` before the source. It records user intent, configuration knobs (which map to `paramsSchema`), and target serialization requirements.
+
+## Conversion Mapping
+
+| Claude Design Source | Custom Interface Output |
 |---|---|
-| `ReactDOM.createRoot(...).render(<App />)` | Delete. The shell mounts `default`. |
-| `import` statements | Delete. Inline helpers/components or use injected globals. |
-| TypeScript props/interfaces | Strip to plain JavaScript. |
-| `window.TWEAK_DEFAULTS` or tweak panels | Convert real knobs to `paramsSchema`; delete the tweak UI. |
-| Mock data arrays | Move to `task.data`, `paramsSchema`, or static constants depending on intent. |
-| Local annotation state | Use `props.regions` and callbacks. |
-| Relative CSS files | Inline styles or render a `<style>` tag. |
-| Relative images/icons | Inline SVGs or replace with text/HTML. |
-| Host `postMessage` edit-mode hooks | Delete. Label Studio does not use them. |
+| Multiple script files under `src/*.jsx` | Concatenate into one file in the order defined in `index.html` (primitives → leaves → root component). |
+| `ReactDOM.createRoot(...).render(<App/>)` | **Drop.** The shell mounts the default export. |
+| `React.useState`, `React.useEffect`, etc. | Keep as `React.useState` or rewrite to injected globals (`useState`). |
+| `window.TWEAK_DEFAULTS` + `<TweaksPanel>` | Map tweak defaults to `paramsSchema` properties. **Delete** the panel UI and the postMessage listeners. |
+| Top-level mock data constants | If data varies per task → read from `props.task.data` via `getField`. If static metadata (severity tables, colors) → keep inline. |
+| Local region state (`const [spans, setSpans] = useState(...)`) | **Drop local state.** Read from `props.regions`; mutate via `addRegion`/`updateRegion`/`deleteRegion`. |
+| Ranking/reorder list state | Use one region (`ranking-main`). Render from `rankingRegion._rankedUrls` only. Do not duplicate list state in `useState`. |
+| NER/text span mocks | Convert each span to a region with absolute `_start`/`_end` and `_text`. See `references/text-spans.md`. |
+| Image keypoints/clicks | Convert to one region per mark with `_x`, `_y`, `_hasCoords: true`. |
+| `<link rel="stylesheet">` | Inline the contents as a `<style>` block rendered inside the component. |
+| `@font-face` rules pointing to `fonts/` | Drop. Use system fonts: `font-family: ui-sans-serif, system-ui, sans-serif`. |
+| `<img src="assets/icons/foo.svg">` | Inline SVGs as tiny React components or via `dangerouslySetInnerHTML`. |
+| `getResults` / `parseResults` / `outputSchema` | Write these from scratch based on task fields and requested output. |
 
-## React Version
+## React Version Gotchas
 
-Assume React 17. Avoid React 18-only APIs such as `useId` or concurrent
-features. The prototype may have targeted React 18, but the interface
-runtime should not depend on it.
-
-## Region State
-
-Prototype state often looks like this:
-
-```jsx
-const [spans, setSpans] = useState(INITIAL_SPANS);
-```
-
-Convert it to shell state:
-
-```jsx
-const spans = props.regions.filter((r) => r.type === "labels");
-
-const addSpan = (start, end, text, label) => {
-  props.addRegion({
-    id: `span-${Date.now()}-${start}-${end}`,
-    type: "labels",
-    labels: [label],
-    colors: ["#4f46e5"],
-    score: null,
-    hidden: false,
-    locked: false,
-    selected: false,
-    parentId: null,
-    text: `${label}: ${text}`,
-    _start: start,
-    _end: end,
-    _text: text,
-  });
-};
-```
-
-## Styling
-
-Keep styling self-contained:
-
-```jsx
-const styles = `
-  .ci-root { font-family: ui-sans-serif, system-ui, sans-serif; }
-  .ci-button { border: 1px solid #d1d5db; border-radius: 6px; }
-`;
-
-const App = () => (
-  <div className="ci-root">
-    <style>{styles}</style>
-    ...
-  </div>
-);
-```
-
-Use unique class prefixes such as `ci-` to avoid collisions inside the iframe.
-
-## What to Drop
-
-- Landing-page or marketing sections.
-- Demo-only controls that do not affect annotation.
-- External script tags.
-- Fonts unless the user provides a hosted, allowed font URL.
-- Parent-window integration code.
-- Build tooling, package files, and app entry files.
+- **React 17 vs 18**: Claude Design prototypes target React 18, but the editor shell provides React 17. Avoid React 18-only features (such as `useId` or concurrent features).
+- **Theme Detection**: Do not try to theme the parent shell. Theme detection inside the iframe should reference `data-color-scheme`.
+- **Region ID Stability**: Prototype mocks often use simple IDs like `s1` or `s2`. Ensure newly created regions in event handlers mint stable unique IDs (`crypto.randomUUID()` or `span-${Date.now()}`) only inside event handlers—never inside render.
