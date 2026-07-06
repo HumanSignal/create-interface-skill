@@ -42,8 +42,91 @@ These identifiers are injected into the runtime scope:
 | `useMemo` | `React.useMemo` |
 | `getField` | Safe nested accessor: `getField(obj, "a.b.c")` |
 | `EditorUI` | HumanSignal UI namespace, available in the sandbox only (reference inside render only) |
+| `EditorDeps` | Sandbox-only. Global dependencies namespace. Currently contains: `audioDecoder: { WasmStreamingDecoder }` |
 
 Do not import packages. If an icon or helper is needed, define it inline.
+
+## Audio Waveform & Streaming Decoder (`EditorDeps.audioDecoder`)
+
+For custom audio interfaces requiring waveforms or streaming audio data without thread locks, CSP violations, or CORS errors, use `EditorDeps.audioDecoder.WasmStreamingDecoder`.
+
+### Class API Specification
+```javascript
+class WasmStreamingDecoder {
+  constructor(audioUrl) {
+    this.src = audioUrl;
+    this.sampleRate = number;   // e.g. 44100
+    this.channelCount = number; // e.g. 2
+    this.duration = number;     // duration in seconds
+    // Multidimensional chunks array: chunks[channelIndex][chunkIndex] -> Float32Array
+    // Accessing chunks dynamically fetches and decodes the requested chunk from the parent.
+    this.chunks = Float32Array[][];
+  }
+
+  // Initializes the decoder (fetches metadata). Returns a Promise.
+  async init() {}
+
+  // Asynchronously decodes the audio. Returns a Promise.
+  async decode() {}
+
+  // Set the visible viewport in seconds to prefetch chunks.
+  setVisibleRange(startSeconds, endSeconds) {}
+
+  // Event listener registration ("chunkLoaded" is emitted when a chunk completes decoding).
+  on(eventName, callback) {}
+  off(eventName, callback) {}
+
+  // Clean up resources when the component unmounts.
+  dispose() {}
+}
+```
+
+### Usage Pattern
+Always initialize the decoder inside a `useEffect` and clean it up via `.dispose()` on component unmount. Trigger a state update or force re-render when the `"chunkLoaded"` event fires.
+
+```jsx
+const AudioWaveformScreen = (props) => {
+  const audioUrl = props.task.data.audio_url;
+  const [decoder, setDecoder] = useState(null);
+  const [tick, setTick] = useState(0); // Trigger re-render on new chunks
+  const [viewport, setViewport] = useState({ start: 0, end: 10 });
+
+  useEffect(() => {
+    if (!EditorDeps || !audioUrl) return;
+
+    const dec = new EditorDeps.audioDecoder.WasmStreamingDecoder(audioUrl);
+    
+    const onChunk = () => {
+      setTick(t => t + 1); // Force React update to redraw canvas
+    };
+
+    dec.on("chunkLoaded", onChunk);
+    
+    dec.init().then(() => {
+      setDecoder(dec);
+      dec.setVisibleRange(viewport.start, viewport.end);
+    });
+
+    return () => {
+      dec.off("chunkLoaded", onChunk);
+      dec.dispose();
+    };
+  }, [audioUrl]);
+
+  // When viewport changes (e.g. scroll or zoom)
+  useEffect(() => {
+    if (decoder) {
+      decoder.setVisibleRange(viewport.start, viewport.end);
+    }
+  }, [decoder, viewport]);
+
+  if (!decoder) return <div>Loading audio metadata...</div>;
+
+  // Render waveform from decoder.chunks[channelIndex][chunkIndex]
+  // ...
+  return <div />;
+};
+```
 
 ## Default Component Props (`DynamicScreenProps`)
 
