@@ -84,6 +84,9 @@ Use these references as needed:
   serialization patterns.
 - `references/claude-design-conversion.md`: convert Claude Design or React
   prototypes into the single-file Interface format.
+- `references/local-preview.md`: SDK `interface preview` cache, two-port
+  localhost isolation, offline/auth failure modes, and CLI `sync` for writes
+  (FIT-2869 preview-only / no playground Save).
 
 ## Local Validation
 
@@ -116,11 +119,39 @@ label-studio-sdk interface validate . --json
 ```
 
 If validation passes and the user wants a visual check, use preview from the
-same interface directory:
+same interface directory (requires Label Studio Enterprise for first-run asset
+download; live reload then stays on localhost):
 
 ```bash
+export LABEL_STUDIO_URL="https://app.humansignal.com"   # or your LSE origin
+export LABEL_STUDIO_API_KEY="YOUR_API_KEY"
 label-studio-sdk interface preview .
 ```
+
+Useful variants:
+
+```bash
+label-studio-sdk interface preview Screen.jsx --task task.json
+label-studio-sdk interface preview . --no-open
+label-studio-sdk interface preview . --offline   # needs a prior verified cache
+```
+
+Preview notes agents must respect:
+
+- First uncached run authenticates against LSE, downloads version-compatible
+  playground + sandbox artifacts, verifies them, and stores an origin/protocol-
+  scoped user cache. Bad/missing tokens fail closed (no anonymous bootstrap).
+- Runtime uses **two** `127.0.0.1` listeners (playground host + sandbox) with
+  capability URLs. Treat printed URLs as workstation-local secrets.
+- The API token stays in the CLI process — never in browser JS, HTML, query
+  params, or storage. The local playground is **preview-only**: there is no
+  in-browser Save and no Save BFF. Do not tell users to click Save in preview.
+- Live reload is localhost SSE only (no Django playground stream, Redis, or
+  Streamer). `--offline` requires an existing verified cache; protocol mismatch
+  fails before the browser opens.
+- **Writes go through the CLI only:** after iterating in preview, run
+  `interface sync` (add `--publish` when ready). Use `pull` to refresh a sidecar-
+  bound interface. See `references/local-preview.md`.
 
 If the SDK CLI is not installed, do not block. Perform static checks: plain JSX
 only, no `import`/`require`/`export`, no TypeScript syntax, a trailing
