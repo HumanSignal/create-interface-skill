@@ -84,10 +84,20 @@ Or validate a single file:
 label-studio-sdk interface validate ./Screen.jsx
 ```
 
-Preview locally:
+Preview locally (Enterprise URL + API key required for first-run asset cache;
+live reload then stays on two `127.0.0.1` ports — see `references/local-preview.md`):
 
 ```bash
+export LABEL_STUDIO_URL="https://app.humansignal.com"
+export LABEL_STUDIO_API_KEY="YOUR_API_KEY"
 label-studio-sdk interface preview .
+```
+
+Optional:
+
+```bash
+label-studio-sdk interface preview . --offline   # verified cache only
+label-studio-sdk interface doctor                # cache / auth / setup checks
 ```
 
 Sync a draft back to Label Studio:
@@ -111,6 +121,7 @@ references/
   authoring-rules.md
   claude-design-conversion.md
   examples.md
+  local-preview.md
   runtime-contract.md
   text-spans.md
 ```
