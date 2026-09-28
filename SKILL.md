@@ -7,186 +7,76 @@ description: >-
   interface, data review workflow, or conversion of a React/Claude Design mockup
   into a Label Studio interface.
 ---
+<!-- GENERATED from HumanSignal hs-platform services/lse/web/libs/interface-skills (FIT-2953). Do not edit here; edit the source modules — CI republishes on merge. -->
 
 # Create Labeling Interface
 
-Create a HumanSignal Interface: one JSX source file whose final expression
-is a parenthesized object literal with a `default` React component and optional
-exports such as `getResults`, `parseResults`, `paramsSchema`, and `outputSchema`.
+Create a HumanSignal Interface: one JSX source file (`Screen.jsx`) whose final
+expression is a parenthesized object literal with a `default` React component
+and optional exports such as `getResults`, `parseResults`, `paramsSchema`,
+`outputSchema`, and `hotkeys`.
 
-This is the JSX-based Interfaces runtime. Do not use the older
-`<ReactCode>` XML tag format unless the user explicitly asks for ReactCode.
+This is the JSX-based Interfaces runtime. Do not use the older `<ReactCode>`
+XML tag format unless the user explicitly asks for ReactCode.
 
-## Core Workflow
+## Source of truth
 
-1. Identify the task data fields, annotation outputs, labels/classes, and any
-   project-level settings.
-2. Design the screen as a controlled React component using the runtime props.
-   Read task data from `props.task.data`; read annotation state from
-   `props.regions` and `props.relations`; mutate through callbacks such as
-   `addRegion`, `updateRegion`, and `deleteRegion`.
-3. Write `paramsSchema` for configurable project settings.
-4. Write `outputSchema` for the annotation contract. This is required for
-   auto-labeling/prompter integration.
-5. Write `getResults` and `parseResults` together so saved annotations round
-   trip cleanly.
-6. End the file with the required parenthesized object literal.
-7. Validate the interface. If `label-studio-sdk` is available on `PATH`, run
-   `label-studio-sdk interface validate .` from the local interface directory,
-   or pass the `.jsx` file directly. If the SDK CLI is unavailable, fall back to
-   the static checks in `references/authoring-rules.md`.
+The files under `references/` are rendered from the **same modules** the
+in-app "Create with Agent" assistant sends to its model. They are authoritative.
+Follow their module contract, schema rules, pre-submit checklist, region
+contract, and styling/accessibility requirements exactly.
 
-## Hard Rules
+## Mandatory read order
 
-- Produce one `.jsx` source file. Do not create a package, build config, or app.
-- Do not use `import`, `require`, or `export`. The source is evaluated as a
-  function body, not as an ES module.
-- Do not use TypeScript syntax. Strip type annotations, interfaces, generics,
-  and `as` casts.
-- The last expression in the file must be a parenthesized object literal:
+1. Read `references/core-contract.md` end-to-end. It is the base contract for
+   every interface, including the pre-submit checklist.
+2. Read `references/schemas.md` and `references/styling-a11y.md`. Every
+   interface needs schemas and must support light **and** dark mode through
+   design-system tokens.
+3. Read the domain module(s) matching the request, and the matching complete
+   example to adapt:
 
-```jsx
-({
-  default: MyInterface,
-  specVersion: 1,
-  paramsSchema,
-  outputSchema,
-  getResults,
-  parseResults,
-})
-```
+| Reference | Covers |
+|---|---|
+| `references/core-contract.md` | Response/output format, defensive coding, pre-submit checklist, edit tools, dynamic screen module, params, accessibility basics, and task-data access. |
+| `references/text-spans.md` | Absolute-offset text highlighting, NER/entity spans, and selection-offset helpers. |
+| `references/spatial-bounding.md` | Spatial region persistence, ShellRegion shape, visibility/lock state, AnnotationResult shape, and ranking/ordering. |
+| `references/video-frames.md` | Seek-safe HTML5 video FPS probing and stable frame counters for timeline navigation (FIT-2803). |
+| `references/schemas.md` | inputSchema, outputSchema syntax, required output fields, dependsOn, and parseResults. |
+| `references/schemas-spatial.md` | Multi-select image URLs, spatial keypoint schemas, and PDF OCR / bounding box schemas. |
+| `references/example-classification.md` | A full Sentiment Analysis / Text Classification screen module example. |
+| `references/example-ner.md` | A full Named Entity Recognition (NER) screen module example. |
+| `references/example-audio.md` | Audio/waveform time-span regions with shell relation anchors and correct serialization (FIT-2247). |
+| `references/example-spatial.md` | A full Image Bounding Box / Spatial screen module example. |
+| `references/video-timeline.md` | Probe real fps on load via EditorDeps.video, keep frame counts monotonic, and never clip annotation frames to a 24fps fallback (FIT-2804). |
+| `references/styling-a11y.md` | Theme-aware tokens, typography, spacing, components, layout, and interaction/accessibility rules. |
 
-- Do not render a primary Submit/Update button in the canvas. The shell owns
-  submission. Use `BottomBarExtra` only when extra bottom-bar actions are
-  needed.
-- Do not generate new region IDs during render. Reuse existing region IDs and
-  mint IDs only inside user event handlers or `parseResults`.
-- Do not rely on persistent `localStorage` or `sessionStorage`. The sandbox may
-  reset them on iframe remount.
-- Reference `EditorUI` only inside component render functions. Admin-time schema
-  extraction may not inject it.
+4. Read only the `references/reference.md` sections you need (start with
+   **Schemas & sample data** whenever the UI reads `task.data`). Open
+   `references/examples.md` only when reference.md sends you there.
 
-## Runtime Contract
+## Runtime notes for local authoring
 
-Read `references/runtime-contract.md` before writing a non-trivial interface.
-It covers available globals, default component props, region shapes, and optional
-exports.
-
-Use these references as needed:
-
-- `references/authoring-rules.md`: validation, sandbox limits, schema alignment,
-  and common breakages.
-- `references/runtime-contract.md`: `DynamicScreenProps`, regions, relations,
-  and shell slots.
-- `references/text-spans.md`: text span/NER offset rules, highlight rendering,
-  and selection offset helpers.
-- `references/examples.md`: complete text classification example and reusable
-  serialization patterns.
-- `references/claude-design-conversion.md`: convert Claude Design or React
-  prototypes into the single-file Interface format.
-
-## Local Validation
-
-Prefer the SDK CLI when the user has it installed. Do not assume the user has a
-`label-studio-sdk` source checkout or this skill repo locally; assume only that
-the `label-studio-sdk` command may be available.
-
-From a local interface directory:
-
-```bash
-label-studio-sdk interface validate .
-```
-
-Or for a single JSX file:
-
-```bash
-label-studio-sdk interface validate ./Screen.jsx
-```
-
-If the interface includes browser interaction scenarios, run them too:
-
-```bash
-label-studio-sdk interface validate . --scenario scenarios.js
-```
-
-Use JSON output when another tool or agent needs to parse the result:
-
-```bash
-label-studio-sdk interface validate . --json
-```
-
-If validation passes and the user wants a visual check, use preview from the
-same interface directory:
-
-```bash
-label-studio-sdk interface preview .
-```
-
-If the SDK CLI is not installed, do not block. Perform static checks: plain JSX
-only, no `import`/`require`/`export`, no TypeScript syntax, a trailing
-parenthesized object literal with `default`, stable region IDs, and aligned
-`paramsSchema`/`outputSchema`/`getResults`/`parseResults`.
-
-## Output Expectations
-
-For simple requests, return the complete `.jsx` file and a short note naming the
-task data fields and annotation outputs it expects.
-
-For implementation inside a repo, create or update a single `.jsx` file unless
-the user asks for tests, sample data, or SDK workflow files. Keep generated code
-self-contained and pasteable into the Interfaces editor.
-
-For complex requests, include:
-
-- the interface source file,
-- sample task data if the user did not provide any,
-- notes on `paramsSchema` defaults,
-- notes on the annotation result shape emitted by `getResults`.
-
-## Quick Skeleton
-
-```jsx
-const MyInterface = (props) => {
-  const { task, regions, params, addRegion, updateRegion, deleteRegion, readOnly } = props;
-  const text = getField(task.data, params?.textField ?? "text") ?? "";
-
-  return (
-    <div style={{ padding: 24 }}>
-      <pre style={{ whiteSpace: "pre-wrap" }}>{String(text)}</pre>
-    </div>
-  );
-};
-
-const paramsSchema = {
-  type: "object",
-  properties: {
-    textField: {
-      type: "string",
-      title: "Text field",
-      default: "text",
-    },
-  },
-};
-
-const outputSchema = {
-  type: "object",
-  properties: {},
-};
-
-function getResults(regions, relations) {
-  return [];
-}
-
-function parseResults(results) {
-  return { regions: [], relations: [] };
-}
-
-({
-  default: MyInterface,
-  specVersion: 1,
-  paramsSchema,
-  outputSchema,
-  getResults,
-  parseResults,
-})
-```
+- **Injected globals.** Beyond the `React` / hooks / `getField` globals listed in
+  `core-contract`, the sandbox injects `EditorUI` (the `@humansignal/ui` namespace) and
+  `EditorDeps` (e.g. `EditorDeps.audioDecoder.WasmStreamingDecoder`, `EditorDeps.video.probeFrameRate`).
+- **Do not reference `window.InterfaceComponents`** (`AudioCanvas`, `useComponentHotkeys`) — they are
+  gated behind `fflag_interfaces_components`, which is off. Build audio interfaces with
+  `EditorDeps.audioDecoder.WasmStreamingDecoder` as shown in `core-contract` and `example-audio`, and
+  ignore any `InterfaceComponents` recipes in `reference.md`.
+- **`EditorUI` two-path trap.** `EditorUI` is injected only inside the runtime iframe, **not** in the
+  admin-time eval that extracts `paramsSchema`. A top-level `EditorUI` reference throws
+  `EditorUI is not defined` and silently breaks `paramsSchema` in Labeling Settings. Reference it inside
+  render only, or omit it and use inline styles with design tokens.
+- **Shell-owned behavior.** The labeling shell owns Submit/Update, undo/redo/reset, the Regions/Info/Relations
+  panels, region visibility, and comments. Drive them through the props and callbacks in `core-contract` and
+  `spatial-bounding` (`addRegion`, `updateRegion`, `deleteRegion`, `selectRegion`, `selectedRegionIds`,
+  hidden/locked state). Do not re-implement them in the screen: a custom Delete button, local-only region state,
+  or ignoring hidden state breaks the shell's panels and history.
+- **Compiler extraction.** The compiler turns the last parenthesized object literal into the module export. If the
+  file does not end with a bare `({ default: ... })`, the editor rejects it with
+  *"Module missing 'default' function export."*
+- **No persistent storage.** `localStorage` / `sessionStorage` are in-memory shims that reset on every iframe
+  remount; persist only through the mutation callbacks and annotation results.
+- **Sample data.** Keep `task.json` compact and use the exact `default` task-data paths from every
+  `dataField` in `paramsSchema` / `inputSchema`.
