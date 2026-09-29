@@ -40,7 +40,7 @@ contract, and styling/accessibility requirements exactly.
 |---|---|
 | `references/core-contract.md` | Response/output format, defensive coding, pre-submit checklist, edit tools, dynamic screen module, params, accessibility basics, and task-data access. |
 | `references/text-spans.md` | Absolute-offset text highlighting, NER/entity spans, and selection-offset helpers. |
-| `references/spatial-bounding.md` | Spatial region persistence, ShellRegion shape, visibility/lock state, AnnotationResult shape, and ranking/ordering. |
+| `references/spatial-bounding.md` | Spatial region persistence, ShellRegion shape, visibility/lock state, AnnotationResult shape, and ranking/ordering (legacy DIY only when Interface Components are off). |
 | `references/video-frames.md` | Seek-safe HTML5 video FPS probing and stable frame counters for timeline navigation (FIT-2803). |
 | `references/schemas.md` | inputSchema, outputSchema syntax, required output fields, dependsOn, and parseResults. |
 | `references/schemas-spatial.md` | Multi-select image URLs, spatial keypoint schemas, and PDF OCR / bounding box schemas. |
