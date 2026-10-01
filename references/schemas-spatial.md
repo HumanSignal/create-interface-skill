@@ -334,6 +334,10 @@ getResults(regions, relations) {
 }
 ```
 
-**Commit strokes once (FIT-2942):** paint the in-progress stroke on a local/offscreen canvas while the pointer moves, then encode RLE and call `addRegion` **once** on pointer-up (or `updateRegion` with a **new** `_rle` array when extending the selected mask). Never `addRegion` on pointerdown and again on pointer-up — the shell drops the duplicate id, so only the first point is kept — and never push points into an existing array in place.
+**Commit strokes once (FIT-2942):** paint the in-progress stroke on a local/offscreen canvas while the pointer moves, then encode the mask and call `addRegion` **once** on pointer-up (or `updateRegion` with a **new** `_rle` array / `_imageDataURL` when extending or erasing the selected mask). Never push points into an existing array in place.
+- **Never create an empty stub region on pointerdown** (`addRegion` with an empty mask, `_pixelCount: 0`) and fill it later with `updateRegion` — a new region does not exist until the stroke has painted pixels. Start a new region only on pointer-up, and skip `addRegion` when the stroke painted nothing.
+- **The region is the source of truth.** Store the committed mask (`_rle` or `_imageDataURL`) and any derived stats (e.g. `_pixelCount`) on the region in that same commit. `getResults` must serialize from region fields only — never from a module-level or ref mask cache, which goes stale on undo/redo, task switches and Node-side validation.
+- Release the stroke from the canvas's own `onPointerUp` / `onPointerCancel` (with `setPointerCapture` on pointerdown), not from a `window` listener registered once in `useEffect(..., [])` — that listener closes over the first render's state.
+- If a screen still calls `addRegion` on pointerdown and again on pointer-up with the same id, the shell **replaces** the region (so the full stroke is kept) rather than dropping the second call or suffixing the id; do not rely on it for new code.
 
 BBox-style brush masks may use `x`/`y`/`width`/`height` + `brushlabels` instead of RLE. Polygon tools stay on `polygonlabels` + `points` and must not reuse the Brush label.

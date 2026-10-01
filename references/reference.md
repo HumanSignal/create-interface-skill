@@ -998,7 +998,10 @@ Required patterns for brush canvases with many regions:
 3. **Throttle hover hit-tests** — wrap `findRegionAtPoint` in `requestAnimationFrame`
    so decoding masks for hover runs at most once per frame.
 4. **Commit strokes once** — accumulate brush strokes on an offscreen canvas during draw;
-   encode RLE and `addRegion` only on pointer-up (not per point).
+   encode RLE and `addRegion` only on pointer-up (not per point). Never `addRegion` an empty
+   stub on pointerdown and fill it with `updateRegion` later; store the committed mask (and
+   any pixel count) on the region and serialize `getResults` from region fields, not from a
+   module-level mask cache (FIT-2942).
 
 The editor-shell also treats `_offsetX` / `_offsetY`-only `updateRegion` patches as
 **transient** (no undo snapshot or draft write per frame) for interfaces that still
