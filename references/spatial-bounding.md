@@ -33,6 +33,7 @@ The editor shell owns region visibility and locking. Generated screens must hono
 - Do NOT filter hidden regions out of `getResults`, `parseResults`, or saved state. Hidden is a view state, not deletion. Only `deleteRegion` removes a region.
 - If a hidden region is selected in the side panel, keep details/outliner behavior intact, but the canvas representation must remain hidden.
 - `region.locked === true` means the region can render, but drag/edit/delete controls should be disabled or ignored.
+- Delete is shell-owned too: the Info panel header already has a Delete control for the selected region. Do **not** render a "Delete polygon" / "Delete box" / "Delete region" / trash button inside `InfoViewer` or `OutlinerItem` (FIT-2931). Canvas keyboard/gesture deletes go through `deleteRegion`; per-point actions like removing one vertex are fine.
 
 ### Ctrl/Cmd multi-select + group move (FIT-2748 / FIT-2827)
 

@@ -6,6 +6,11 @@
 
 For an image annotation or bounding box interface:
 
+**Outliner / Info panel actions (CRITICAL — FIT-2246 / FIT-2931):**
+- The editor-shell wraps `OutlinerItem` with Lock + Hide, and wraps `InfoViewer` with Lock + Hide + Delete.
+- Export `OutlinerItem` / `InfoViewer` as **content only** (label, coordinates, notes, editable fields).
+- Do **not** render "Delete polygon", "Delete box", "Delete region", trash icons, Lock, Hide or eye buttons inside them — the Info panel then shows two Delete controls.
+
 ```js
 function BoundingBoxScreen(props) {
   const labels = props.params?.labels ?? [
@@ -24,8 +29,67 @@ function BoundingBoxScreen(props) {
   );
 }
 
+function formatBox(region) {
+  const fmt = (n) => (Number.isFinite(Number(n)) ? Number(n).toFixed(1) : "0.0");
+  const x = region.x ?? region._x ?? region._value?.x;
+  const y = region.y ?? region._y ?? region._value?.y;
+  const width = region.width ?? region._width ?? region._value?.width;
+  const height = region.height ?? region._height ?? region._value?.height;
+  return fmt(x) + ", " + fmt(y) + " · " + fmt(width) + " × " + fmt(height) + "%";
+}
+
+/** Content-only row — shell adds Lock/Hide (FIT-2246). */
+function OutlinerItem(props) {
+  const { region, index } = props;
+  const label = (region.labels || [])[0] || "Unlabeled";
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <span style={{ width: 8, height: 8, borderRadius: 2, background: (region.colors || [])[0] || "#ef4444", flexShrink: 0 }} />
+      <span style={{ fontWeight: 600 }}>{index}. {label}</span>
+    </div>
+  );
+}
+
+/** Content-only details — shell adds Lock/Hide/Delete (FIT-2931). No "Delete box" button here. */
+function InfoViewer(props) {
+  const { region, updateRegion, readOnly, params } = props;
+  const labels = params?.labels ?? [{ name: "Object", color: "#ef4444" }];
+  const current = (region.labels || [])[0] || "";
+  const editable = !readOnly && !region.locked;
+
+  return (
+    <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        {labels.map((label) => (
+          <button
+            key={label.name}
+            type="button"
+            disabled={!editable}
+            aria-label={"Set label " + label.name}
+            aria-pressed={current === label.name}
+            onClick={() => updateRegion?.(region.id, { labels: [label.name], colors: [label.color] })}
+            style={{
+              padding: "4px 8px",
+              borderRadius: 4,
+              border: "1px solid " + (current === label.name ? label.color : "var(--color-neutral-border)"),
+              background: current === label.name ? label.color + "22" : "transparent",
+              color: "var(--color-neutral-content)",
+              cursor: editable ? "pointer" : "default",
+            }}
+          >
+            {label.name}
+          </button>
+        ))}
+      </div>
+      <div style={{ fontSize: 12, opacity: 0.7 }}>Box: {formatBox(region)}</div>
+    </div>
+  );
+}
+
 ({
   default: BoundingBoxScreen,
+  OutlinerItem,
+  InfoViewer,
   paramsSchema: {
     type: "object",
     properties: {
