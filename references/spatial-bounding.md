@@ -322,3 +322,4 @@ A toolbar tool labeled **Brush** (paint / freehand mask / semantic-segmentation 
 - **Never** implement Brush as `polygonlabels`, freehand vertex sampling, circular polygon approximation, or "one polygon segment for the entire stroke".
 - **Polygon** is a separate tool: click vertices → close shape → `polygonlabels` with `points`.
 - Canonical brush example: `services/lse/web/libs/editor-shell/examples/shark-brush-interface.jsx` (see also reference § Brush / RLE mask performance, FIT-2030).
+- **Bitmask / multi-region (FIT-3031):** each region owns its own mask snapshot. Do not share one `_value` / `imageDataURL` / pixel buffer across regions; **New region** mints a new `id` and must not zero prior rows in the Regions panel.

@@ -336,8 +336,18 @@ getResults(regions, relations) {
 
 **Commit strokes once (FIT-2942):** paint the in-progress stroke on a local/offscreen canvas while the pointer moves, then encode the mask and call `addRegion` **once** on pointer-up (or `updateRegion` with a **new** `_rle` array / `_imageDataURL` when extending or erasing the selected mask). Never push points into an existing array in place.
 - **Never create an empty stub region on pointerdown** (`addRegion` with an empty mask, `_pixelCount: 0`) and fill it later with `updateRegion` — a new region does not exist until the stroke has painted pixels. Start a new region only on pointer-up, and skip `addRegion` when the stroke painted nothing.
-- **The region is the source of truth.** Store the committed mask (`_rle` or `_imageDataURL`) and any derived stats (e.g. `_pixelCount`) on the region in that same commit. `getResults` must serialize from region fields only — never from a module-level or ref mask cache, which goes stale on undo/redo, task switches and Node-side validation.
+- **The region is the source of truth.** Store the committed mask (`_rle` or `_imageDataURL` / `imageDataURL` inside `_value`) and any derived stats (e.g. `_pixelCount`) on the region in that same commit. `getResults` must serialize from region fields only — never from a module-level or ref mask cache, which goes stale on undo/redo, task switches and Node-side validation.
 - Release the stroke from the canvas's own `onPointerUp` / `onPointerCancel` (with `setPointerCapture` on pointerdown), not from a `window` listener registered once in `useEffect(..., [])` — that listener closes over the first render's state.
 - If a screen still calls `addRegion` on pointerdown and again on pointer-up with the same id, the shell **replaces** the region (so the full stroke is kept) rather than dropping the second call or suffixing the id; do not rely on it for new code.
+
+**Multiple brush / bitmask regions (FIT-3031 — CRITICAL):** each committed region must own an **independent** mask snapshot. Sharing one `_value` object, one `imageDataURL` string you later clear, one `Uint8Array` / `ImageData` buffer, or one module-level "current mask" across regions makes the first row go to `0 px` / vanish from the Regions panel while paint still shows on the canvas.
+- On **New region** / starting another object / region: mint a **new** `id`, clear **only** the in-progress stroke canvas, and leave every already-committed region in `props.regions` untouched — never `updateRegion` prior ids with an empty mask, never reset their `_pixelCount`, never reuse the previous region's `id`.
+- When calling `addRegion`, pass a **fresh** payload object every time: `{ ...meta, _value: { imageDataURL: offscreen.toDataURL("image/png") } }` or a **copied** `_rle` array (`rle.slice()`). Do **not** keep a module-level `currentValue` / `activeMask` object that the next stroke mutates in place.
+- Outliner copy such as `Label · N px` must read `_pixelCount` (or count pixels) from **that** region's own fields at commit time — never from a shared "active mask" counter that the next New region zeroes.
+- Hand-rolled bitmask / brush canvases must follow the isolation rules above — never share mask state across regions.
+
+#### Bitmask masks (`bitmasklabels`)
+
+Pixel-wise PNG masks use `type: "bitmasklabels"` with `_value: { imageDataURL: "data:image/png;base64,..." }` (black pixels on a transparent image-sized PNG). The same FIT-2942 commit-once rules and FIT-3031 per-region isolation rules apply — swap `_rle` for a **new** `imageDataURL` string per commit; never share or clear a single data-URL variable across regions.
 
 BBox-style brush masks may use `x`/`y`/`width`/`height` + `brushlabels` instead of RLE. Polygon tools stay on `polygonlabels` + `points` and must not reuse the Brush label.

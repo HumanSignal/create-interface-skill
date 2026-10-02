@@ -1002,6 +1002,13 @@ Required patterns for brush canvases with many regions:
    stub on pointerdown and fill it with `updateRegion` later; store the committed mask (and
    any pixel count) on the region and serialize `getResults` from region fields, not from a
    module-level mask cache (FIT-2942).
+5. **One independent mask per region (FIT-3031)** — never share a `_value` object, a
+   mutable `imageDataURL` / `Uint8Array` buffer, or a module-level "current mask" across
+   regions. **New region** must mint a new `id`, clear only the in-progress stroke canvas,
+   and leave committed regions untouched (do not `updateRegion` prior ids with empty masks
+   or reset their `_pixelCount`). Pass a fresh `{ imageDataURL: canvas.toDataURL(...) }` or
+   `rle.slice()` on every `addRegion`. Prefer `ImageCanvas` with `tools={["bitmask","eraser"]}`
+   when Interface Components are available. The same rule applies to `bitmasklabels` PNG masks.
 
 The editor-shell also treats `_offsetX` / `_offsetY`-only `updateRegion` patches as
 **transient** (no undo snapshot or draft write per frame) for interfaces that still
