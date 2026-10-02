@@ -47,12 +47,179 @@ The editor shell owns region visibility and locking. Generated screens must hono
 
 ### Editing vector, polyline and keypoint regions (FIT-2940)
 
-Shapes made of points (polylines / `vectorlabels`, polygons, keypoints) must be editable **by default** — the shell has no vertex editor; the screen owns it.
-- Selecting a region (pointerdown on its stroke or a point, via `selectRegion`) shows vertex handles for every point of that region.
-- Dragging a vertex handle moves that point; dragging the stroke/body moves the whole shape; both preview locally and commit with one `updateRegion` on pointer-up (new `points` array, never mutated in place).
-- Keypoints are draggable the same way. Give handles a hit target of at least ~8px and `data-region-id`.
-- Skip handles and ignore drags when `region.locked` or `props.readOnly` is true, and do not render handles for hidden regions.
-- Adding/removing vertices (e.g. double-click a segment to insert, Alt+click to remove) is encouraged but must not replace plain drag editing.
+Shapes made of points (polylines / `vectorlabels`, polygons, keypoints) must be editable **by default** — the shell has no vertex editor; the screen owns it. Click-to-select alone is **not** editing: a selected region shows vertex handles, and annotators must be able to drag a point, drag the whole shape, and Alt+click a point to remove it. (With Interface Components on, `ImageCanvas` already does this — use it instead of hand-rolling.)
+
+Copy these helpers unchanged (above the screen component), then wire them as shown below:
+
+```js
+// FIT-2940 point-editing helpers — copy unchanged.
+const clampPct = (n) => Math.min(100, Math.max(0, Number(n) || 0));
+
+/** Client px -> % of the element that exactly covers the image / video frame. */
+function toPercentIn(el, clientX, clientY) {
+  const box = el?.getBoundingClientRect?.();
+  if (!box || !box.width || !box.height) return null;
+  return {
+    x: clampPct(((clientX - box.left) / box.width) * 100),
+    y: clampPct(((clientY - box.top) / box.height) * 100),
+  };
+}
+
+/** New array; the moved point keeps its other fields (vector id / prevPointId / isBezier). */
+function movePoint(points, index, x, y) {
+  return (points || []).map((p, i) => (i === index ? { ...p, x: clampPct(x), y: clampPct(y) } : p));
+}
+
+/** Moves every point by (dx, dy), clamped as a whole so the shape keeps its form at the edge. */
+function translatePoints(points, dx, dy) {
+  const list = points || [];
+  if (!list.length) return list;
+  const xs = list.map((p) => p.x);
+  const ys = list.map((p) => p.y);
+  const mx = Math.min(100 - Math.max(...xs), Math.max(-Math.min(...xs), dx));
+  const my = Math.min(100 - Math.max(...ys), Math.max(-Math.min(...ys), dy));
+  return list.map((p) => ({ ...p, x: p.x + mx, y: p.y + my }));
+}
+
+/** Removes one point (never below minPoints) and relinks vector prevPointId chains. */
+function removePoint(points, index, minPoints) {
+  const list = points || [];
+  const removed = list[index];
+  if (!removed || list.length <= (minPoints ?? 2)) return list;
+  return list
+    .filter((_, i) => i !== index)
+    .map((p) =>
+      removed.id != null && p.prevPointId === removed.id ? { ...p, prevPointId: removed.prevPointId ?? null } : p,
+    );
+}
+
+/**
+ * Start a drag from onPointerDown. mode "vertex" moves points[index]; mode "body" moves the whole shape.
+ * onPreview(points) while moving and onPreview(null) at the end; onCommit(points) ONCE on pointer-up when
+ * something moved (one updateRegion per gesture = one undo step). Returns false (no drag) for locked
+ * regions, read-only screens, non-primary buttons, or a pointer outside the media.
+ * Only the pointer that started the drag counts (a second finger / stylus is ignored), and a release
+ * outside the iframe still ends the drag: pointer capture keeps events coming, and a move with no
+ * button held finishes it.
+ */
+function beginPointDrag(event, opts) {
+  const { region, points, mode, index, readOnly, toPercent, onPreview, onCommit } = opts || {};
+  if (readOnly || region?.locked || (event.button ?? 0) !== 0) return false;
+  const start = toPercent(event.clientX, event.clientY);
+  if (!start) return false;
+  event.stopPropagation?.();
+  event.preventDefault?.();
+  try {
+    event.currentTarget?.setPointerCapture?.(event.pointerId);
+  } catch (_) {
+    // capture is best-effort; the window listeners below still end the drag
+  }
+  const pointerId = event.pointerId;
+  const original = points || [];
+  let next = original;
+  const listeners = {};
+  const finish = (commit) => {
+    window.removeEventListener("pointermove", listeners.move);
+    window.removeEventListener("pointerup", listeners.up);
+    window.removeEventListener("pointercancel", listeners.cancel);
+    onPreview(null);
+    if (commit && next !== original) onCommit(next);
+  };
+  listeners.move = (e) => {
+    if (e.pointerId !== pointerId) return;
+    if (e.buttons === 0) {
+      finish(true); // released outside the window: pointerup never arrived
+      return;
+    }
+    const p = toPercent(e.clientX, e.clientY);
+    if (!p) return;
+    next =
+      mode === "vertex"
+        ? movePoint(original, index, p.x, p.y)
+        : translatePoints(original, p.x - start.x, p.y - start.y);
+    onPreview(next);
+  };
+  listeners.up = (e) => {
+    if (e.pointerId === pointerId) finish(true);
+  };
+  listeners.cancel = (e) => {
+    if (e.pointerId === pointerId) finish(false);
+  };
+  window.addEventListener("pointermove", listeners.move);
+  window.addEventListener("pointerup", listeners.up);
+  window.addEventListener("pointercancel", listeners.cancel);
+  return true;
+}
+```
+
+Wiring (region points stored as % in `_points` — use your field, e.g. `_vertices` for `vectorlabels`; a keypoint is a one-point shape dragged in `"body"` mode). Keep this layout: `mediaRef` is one positioned box sized to the rendered image / video frame, and the SVG and the handle layer are **siblings** inside it — a `<span>` placed inside `<svg>` never renders, so handles must not go there:
+
+```jsx
+const [dragPreview, setDragPreview] = useState(null); // { id, points } during a gesture
+const visibleRegions = props.visibleRegions ?? (props.regions || []).filter((r) => !r.hidden);
+const toPercent = (x, y) => toPercentIn(mediaRef.current, x, y);
+const pointsOf = (r) => (dragPreview?.id === r.id ? dragPreview.points : r._points || []);
+const colorOf = (r) => (r.colors || [])[0] || "#ef4444";
+const editable = (r) => !props.readOnly && !r.locked;
+const minPointsOf = (r) => (r._closed ? 3 : 2); // polygons keep 3 points, polylines 2
+// selectedRegionIds is a Set — use .has(), not .includes().
+const isSelected = (r) => props.selectedRegionIds?.has(r.id);
+const dragOpts = (r, mode, index) => ({
+  region: r, points: r._points || [], mode, index, readOnly: props.readOnly, toPercent,
+  onPreview: (pts) => setDragPreview(pts ? { id: r.id, points: pts } : null),
+  onCommit: (pts) => props.updateRegion(r.id, { _points: pts }),
+});
+const svgPoints = (r) => pointsOf(r).map((p) => p.x + "," + p.y).join(" ");
+
+<div ref={mediaRef} style={{ position: "relative" }}>
+  <img src={imageUrl} alt="" draggable={false} style={{ display: "block", width: "100%" }} />
+
+  {/* Shapes: the painted line (relation anchor) + a wide invisible hit line for select + move. */}
+  <svg viewBox="0 0 100 100" preserveAspectRatio="none"
+    style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
+    {visibleRegions.map((r) => (
+      <g key={r.id}>
+        <polyline data-region-id={r.id} points={svgPoints(r)} fill="none" stroke={colorOf(r)} strokeWidth={2}
+          vectorEffect="non-scaling-stroke" style={{ pointerEvents: "none" }} />
+        <polyline data-point-edit="" points={svgPoints(r)} fill="none" stroke="transparent" strokeWidth={14}
+          vectorEffect="non-scaling-stroke"
+          style={{ pointerEvents: "stroke", cursor: editable(r) ? "move" : "default", touchAction: "none" }}
+          onPointerDown={(e) => {
+            const additive = e.ctrlKey || e.metaKey;
+            props.selectRegion(r.id, { additive }); // select ONCE per gesture; no onClick select
+            if (!additive) beginPointDrag(e, dragOpts(r, "body"));
+          }} />
+      </g>
+    ))}
+  </svg>
+
+  {/* Vertex handles: an HTML layer next to the SVG (fixed px hit target; SVG circles in a % viewBox are too small to grab). */}
+  <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+    {visibleRegions.filter((r) => isSelected(r) && editable(r)).map((r) =>
+      pointsOf(r).map((p, i) => (
+        <span key={r.id + ":" + (p.id ?? i)} data-point-edit="" aria-hidden="true"
+          style={{ position: "absolute", left: p.x + "%", top: p.y + "%", width: 12, height: 12,
+            transform: "translate(-50%, -50%)", borderRadius: "50%", boxSizing: "border-box",
+            background: "var(--color-neutral-background)", border: "2px solid " + colorOf(r),
+            cursor: "grab", touchAction: "none", pointerEvents: "auto" }}
+          onPointerDown={(e) => {
+            if (e.altKey) { // Alt/Option+click removes the point
+              e.stopPropagation();
+              const next = removePoint(r._points, i, minPointsOf(r));
+              if (next !== r._points) props.updateRegion(r.id, { _points: next }); // no-op at the minimum
+              return;
+            }
+            beginPointDrag(e, dragOpts(r, "vertex", i));
+          }} />
+      )),
+    )}
+  </div>
+</div>
+```
+
+- The drawing tool's click handler must ignore clicks that started on a shape or handle: `if (e.target.closest?.("[data-point-edit]")) return;` — otherwise selecting or dragging a region also adds a point to a new draft.
+- Render shapes and handles from `props.visibleRegions` only (no handles for hidden regions); handles carry no `data-region-id` (one anchor per region).
+- Adding vertices (e.g. double-click a segment to insert) is encouraged but must not replace plain drag editing.
 - Finish an in-progress polyline with Enter or a React `onDoubleClick` handler — never by reading `event.detail` on pointer events (`PointerEvent.detail` is always `0` in Chrome, so the line can never be finished). Drop the duplicate trailing vertex the double-click's second click adds.
 
 ### AnnotationResult shape (returned by getResults)
