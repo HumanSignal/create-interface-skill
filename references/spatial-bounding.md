@@ -218,6 +218,7 @@ const svgPoints = (r) => pointsOf(r).map((p) => p.x + "," + p.y).join(" ");
 ```
 
 - The drawing tool's click handler must ignore clicks that started on a shape or handle: `if (e.target.closest?.("[data-point-edit]")) return;` — otherwise selecting or dragging a region also adds a point to a new draft.
+- **Drawing mode (FIT-3047):** Vertex editing must work **while the polyline is still being drawn**, before Enter / close. Render the same handles on the in-progress draft points (not only after `addRegion`). Drag a draft handle to move that point; Alt+click removes it (respect `minPoints`). A click on a draft handle must not add a new point. Alt+click on the first draft point removes it — it must **not** close or finish the path.
 - Render shapes and handles from `props.visibleRegions` only (no handles for hidden regions); handles carry no `data-region-id` (one anchor per region).
 - Adding vertices (e.g. double-click a segment to insert) is encouraged but must not replace plain drag editing.
 - Finish an in-progress polyline with Enter or a React `onDoubleClick` handler — never by reading `event.detail` on pointer events (`PointerEvent.detail` is always `0` in Chrome, so the line can never be finished). Drop the duplicate trailing vertex the double-click's second click adds.
