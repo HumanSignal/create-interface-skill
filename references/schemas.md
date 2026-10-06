@@ -108,6 +108,8 @@ Field type patterns:
 | Multi-choice (checkboxes) | `"array"` | `items: { type: "string", enum: [...], "$param": "labels" }` | `["A", "B"]` |
 | Multi-select image URLs / string lists | `"array"` | `items: { type: "string" }` (no `enum` on items) | `["url1", "url2"]` |
 | Free text (textarea) | `"string"` | none | `"some text"` |
+| Date / time | `"string"` | `format: "date-time"` (or `"date"` / `"time"`) | `"2024-05-01T10:15:30"` |
+| Several dates / times | `"array"` | `items: { type: "string", format: "date-time" }` | `["2024-05-01T10:15:30", ...]` |
 | Boolean (yes/no) | `"boolean"` | none | `true` |
 | Number (rating/score) | `"number"` or `"integer"` | optional `minimum`/`maximum` | `4` |
 | Spatial marks / Spans | `"array"` | `items: { type: "string", enum: [...] }` | category strings only; coordinates/spans come from annotator UI |
@@ -116,6 +118,7 @@ Rules:
 - Every annotation output field must have a corresponding property
 - Property keys must match the `from_name` values in `getResults` and `parseResults`
 - Per-region follow-up answers must NOT use an undeclared sibling `from_name` (e.g. `"followUp"`). Put them on the parent field via `items.properties.answers` (or declare a real top-level outputSchema property). Emitting undeclared `from_name`s fails preview/submit validation (FIT-1979).
+- Date / time answers emit the classic DateTime result: `{ from_name, to_name, type: "datetime", value: { datetime: "2024-05-01T10:15:30" } }` — one result per entry for an array field. Declare the field with a date/time `format` as above; a `textarea` result on it also validates, but any other type (or `value.text` on a `datetime` result) fails submit (FIT-3069).
 - Use `$param` to link to a labels/choices param — put it directly on the field for single-choice, or on `items` for multi-choice arrays
 - Always provide `enum` alongside `$param` with the default values (they get overridden at runtime)
 - Include `title` and `description` for each property — these help the LLM understand what to produce
