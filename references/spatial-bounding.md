@@ -324,3 +324,233 @@ A toolbar tool labeled **Brush** (paint / freehand mask / semantic-segmentation 
 - **Polygon** is a separate tool: click vertices → close shape → `polygonlabels` with `points`.
 - Canonical brush example: `services/lse/web/libs/editor-shell/examples/shark-brush-interface.jsx` (see also reference § Brush / RLE mask performance, FIT-2030).
 - **Bitmask / multi-region (FIT-3031):** each region owns its own mask snapshot. Do not share one `_value` / `imageDataURL` / pixel buffer across regions; **New region** mints a new `id` and must not zero prior rows in the Regions panel.
+
+### Image navigation & selection tools (FIT-3066)
+
+Every screen that annotates an image (bitmask, brush / segmentation masks, boxes, polygons, keypoints) must render the navigation & selection tools that the classic image editor always shows, next to the drawing tools:
+
+- **Select** (V) — selects and moves existing regions; never paints or draws. A click on a region calls `props.selectRegion(id, { additive: event.ctrlKey || event.metaKey })`; a click on empty image clears the selection.
+- **Pan** (H, or hold Space / drag with the middle mouse button from any tool) — drags the zoomed image.
+- **Zoom in** (Ctrl/⌘ + =) and **Zoom out** (Ctrl/⌘ + -) around the viewport center; Ctrl/⌘ + wheel zooms at the cursor. Show the current zoom % next to them.
+- Zoom presets: **Fit** (Shift+1) fits the whole image in the viewport, **100%** (Shift+2) shows one image pixel per screen pixel.
+
+A bitmask screen with only Bitmask / Eraser buttons is incomplete. Use icon buttons with `aria-label`, `title` (with the hotkey) and `aria-pressed` for the active tool.
+
+Copy these helpers unchanged (above the screen component):
+
+```js
+// FIT-3066 image navigation helpers — copy unchanged.
+const VIEW_MIN_SCALE = 0.1;
+const VIEW_MAX_SCALE = 20;
+const VIEW_ZOOM_STEP = 1.25;
+/** scale 1 = the image fitted to the viewport; x / y = px offset of the media box inside the viewport. */
+const FIT_VIEW = { scale: 1, x: 0, y: 0 };
+
+/** Zoom-in limit: 20x the fitted view, or 8 screen px per image px on huge images so the 100% preset is reachable. */
+function maxViewScale(naturalWidth, fittedWidth) {
+  const actual = naturalWidth > 0 && fittedWidth > 0 ? naturalWidth / fittedWidth : 0;
+  return Math.max(VIEW_MAX_SCALE, actual * 8);
+}
+
+function clampViewScale(scale, maxScale = VIEW_MAX_SCALE) {
+  return Math.min(maxScale, Math.max(VIEW_MIN_SCALE, Number(scale) || 1));
+}
+
+/** Zoom to `scale`, keeping the viewport point (px, py) — px from the viewport's top-left — fixed on screen. */
+function zoomViewAt(view, scale, px, py, maxScale = VIEW_MAX_SCALE) {
+  const next = clampViewScale(scale, maxScale);
+  const k = next / view.scale;
+  return { scale: next, x: px - (px - view.x) * k, y: py - (py - view.y) * k };
+}
+
+/** One Zoom in (direction > 0) or Zoom out step around the viewport center. */
+function zoomViewStep(view, direction, viewportEl, maxScale = VIEW_MAX_SCALE) {
+  const box = viewportEl?.getBoundingClientRect?.();
+  const factor = direction > 0 ? VIEW_ZOOM_STEP : 1 / VIEW_ZOOM_STEP;
+  return zoomViewAt(view, view.scale * factor, (box?.width || 0) / 2, (box?.height || 0) / 2, maxScale);
+}
+
+/** "Fit" preset: the fitted media box (fittedWidth x fittedHeight at scale 1) centered in the viewport. */
+function fitView(viewportEl, fittedWidth, fittedHeight) {
+  const box = viewportEl?.getBoundingClientRect?.();
+  if (!box) return { ...FIT_VIEW };
+  return { scale: 1, x: (box.width - fittedWidth) / 2, y: (box.height - fittedHeight) / 2 };
+}
+
+/** "100%" preset: one natural image pixel per screen pixel, zoomed around the viewport center. */
+function actualSizeView(view, viewportEl, naturalWidth, fittedWidth) {
+  const box = viewportEl?.getBoundingClientRect?.();
+  const maxScale = maxViewScale(naturalWidth, fittedWidth);
+  return zoomViewAt(view, naturalWidth / fittedWidth, (box?.width || 0) / 2, (box?.height || 0) / 2, maxScale);
+}
+
+/** Zoom readout relative to the natural image size (100 at the "100%" preset). */
+function zoomPercent(view, naturalWidth, fittedWidth) {
+  return Math.round(((view.scale * fittedWidth) / naturalWidth) * 100);
+}
+
+function panView(view, dx, dy) {
+  return { ...view, x: view.x + dx, y: view.y + dy };
+}
+
+/** Style for the media box (image + mask canvas + region overlays) — one transform moves all of them together. */
+function viewTransformStyle(view) {
+  return {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`,
+    transformOrigin: "0 0",
+  };
+}
+
+/** Client px -> natural image px through the zoomed / panned media box (its rect already includes the transform). */
+function clientToNatural(mediaEl, clientX, clientY, naturalWidth, naturalHeight) {
+  const box = mediaEl?.getBoundingClientRect?.();
+  if (!box || !box.width || !box.height) return null;
+  const x = ((clientX - box.left) / box.width) * naturalWidth;
+  const y = ((clientY - box.top) / box.height) * naturalHeight;
+  return { x: Math.min(naturalWidth, Math.max(0, x)), y: Math.min(naturalHeight, Math.max(0, y)) };
+}
+
+/** Classic image keymap -> "select" | "pan" | "zoomIn" | "zoomOut" | "fit" | "actual", or null. Ignores typing. */
+function imageNavAction(event) {
+  const target = event.target;
+  const tag = target?.tagName;
+  if (target?.isContentEditable || tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return null;
+  const mod = event.ctrlKey || event.metaKey;
+  if (mod && (event.key === "=" || event.key === "+")) return "zoomIn";
+  if (mod && event.key === "-") return "zoomOut";
+  if (mod || event.altKey) return null;
+  if (event.shiftKey && event.code === "Digit1") return "fit";
+  if (event.shiftKey && event.code === "Digit2") return "actual";
+  if (event.shiftKey) return null;
+  const key = String(event.key || "").toLowerCase();
+  if (key === "v") return "select";
+  if (key === "h") return "pan";
+  return null;
+}
+```
+
+Wiring — the viewport is an `overflow: hidden` box; the media box inside it is sized to the fitted image and holds the `<img>`, the mask `<canvas>` and every `data-region-id` overlay, so one transform zooms and pans all of them:
+
+```jsx
+const viewportRef = useRef(null);
+const mediaRef = useRef(null);
+const [tool, setTool] = useState("bitmask"); // "select" | "pan" | "bitmask" | "eraser" (+ your other drawing tools)
+const [view, setView] = useState(FIT_VIEW);
+const [spaceHeld, setSpaceHeld] = useState(false);
+// fitted = { width, height } of the image fitted into the viewport at scale 1 (contain); natural = image size.
+const maxScale = maxViewScale(natural.width, fitted.width);
+useEffect(() => setView(fitView(viewportRef.current, fitted.width, fitted.height)), [fitted.width, fitted.height]);
+
+useEffect(() => {
+  // Space belongs to text fields and to focused buttons / checkboxes / options (keyboard activation).
+  const ownsSpace = (t) =>
+    t?.isContentEditable ||
+    ["INPUT", "TEXTAREA", "SELECT"].includes(t?.tagName) ||
+    !!t?.closest?.("button, a[href], summary, [role=button], [role=checkbox], [role=radio], [role=switch], [role=option], [role=tab]");
+  const onKeyDown = (e) => {
+    if (e.code === "Space" && !ownsSpace(e.target)) {
+      e.preventDefault(); // hold Space to pan from any tool
+      setSpaceHeld(true);
+      return;
+    }
+    const action = imageNavAction(e);
+    if (!action) return;
+    e.preventDefault(); // Ctrl/⌘ + = / - must not zoom the whole page
+    if (action === "select" || action === "pan") setTool(action);
+    else if (action === "zoomIn" || action === "zoomOut")
+      setView((v) => zoomViewStep(v, action === "zoomIn" ? 1 : -1, viewportRef.current, maxScale));
+    else if (action === "fit") setView(fitView(viewportRef.current, fitted.width, fitted.height));
+    else setView((v) => actualSizeView(v, viewportRef.current, natural.width, fitted.width));
+  };
+  const onKeyUp = (e) => e.code === "Space" && setSpaceHeld(false);
+  const onBlur = () => setSpaceHeld(false); // the keyup never arrives once the window loses focus
+  window.addEventListener("keydown", onKeyDown);
+  window.addEventListener("keyup", onKeyUp);
+  window.addEventListener("blur", onBlur);
+  return () => {
+    window.removeEventListener("keydown", onKeyDown);
+    window.removeEventListener("keyup", onKeyUp);
+    window.removeEventListener("blur", onBlur);
+  };
+}, [fitted.width, fitted.height, natural.width, maxScale]);
+
+// Ctrl/⌘ + wheel zooms at the cursor. A native non-passive listener is required to preventDefault.
+// Re-run when the image size is known: the viewport may mount after a loading state.
+useEffect(() => {
+  const el = viewportRef.current;
+  if (!el) return;
+  const onWheel = (e) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    e.preventDefault();
+    const box = el.getBoundingClientRect();
+    const scaleBy = Math.exp(-e.deltaY * 0.0015);
+    setView((v) => zoomViewAt(v, v.scale * scaleBy, e.clientX - box.left, e.clientY - box.top, maxScale));
+  };
+  el.addEventListener("wheel", onWheel, { passive: false });
+  return () => el.removeEventListener("wheel", onWheel);
+}, [fitted.width, fitted.height, maxScale]);
+
+// Capture phase: panning wins over the shape / vertex-handle drags underneath the pointer.
+function onViewportPointerDownCapture(e) {
+  if (tool === "pan" || spaceHeld || e.button === 1) {
+    e.preventDefault();
+    e.stopPropagation(); // shapes and handles must not start a drag or select while panning
+    let last = { x: e.clientX, y: e.clientY };
+    const move = (ev) => {
+      // Read the delta now: React runs the updater later, after `last` has moved on.
+      const dx = ev.clientX - last.x;
+      const dy = ev.clientY - last.y;
+      last = { x: ev.clientX, y: ev.clientY };
+      setView((v) => panView(v, dx, dy));
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
+}
+
+function onViewportPointerDown(e) {
+  // Shapes and vertex handles (FIT-2940, `data-point-edit`) select / drag themselves: never select or paint twice.
+  if (e.target.closest?.("[data-point-edit]")) return;
+  const point = clientToNatural(mediaRef.current, e.clientX, e.clientY, natural.width, natural.height);
+  if (!point) return;
+  if (tool === "select") {
+    const hit = hitTestRegion(point); // your mask pixel / shape hit test in natural px (visible regions only)
+    props.selectRegion(hit ? hit.id : null, { additive: e.ctrlKey || e.metaKey });
+    return;
+  }
+  startStroke(point); // bitmask / brush / eraser painting, unchanged
+}
+
+// JSX
+<div role="toolbar" aria-label="Image tools" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 4 }}>
+  <button aria-label="Select" title="Select (V)" aria-pressed={tool === "select"} onClick={() => setTool("select")}>…</button>
+  <button aria-label="Pan" title="Pan (H)" aria-pressed={tool === "pan"} onClick={() => setTool("pan")}>…</button>
+  {/* drawing tools: Bitmask, Eraser, … */}
+  <button aria-label="Zoom out" title="Zoom out (Ctrl/⌘ + -)" onClick={() => setView((v) => zoomViewStep(v, -1, viewportRef.current, maxScale))}>…</button>
+  <span aria-live="polite">{zoomPercent(view, natural.width, fitted.width)}%</span>
+  <button aria-label="Zoom in" title="Zoom in (Ctrl/⌘ + =)" onClick={() => setView((v) => zoomViewStep(v, 1, viewportRef.current, maxScale))}>…</button>
+  <button aria-label="Fit to view" title="Fit (Shift+1)" onClick={() => setView(fitView(viewportRef.current, fitted.width, fitted.height))}>…</button>
+  <button aria-label="Actual size (100%)" title="100% (Shift+2)" onClick={() => setView((v) => actualSizeView(v, viewportRef.current, natural.width, fitted.width))}>…</button>
+</div>
+<div ref={viewportRef} onPointerDownCapture={onViewportPointerDownCapture} onPointerDown={onViewportPointerDown}
+  style={{ position: "relative", overflow: "hidden", flex: 1, cursor: tool === "pan" || spaceHeld ? "grab" : undefined }}>
+  <div ref={mediaRef} data-shell-layout-epoch={`${view.scale}:${view.x}:${view.y}`}
+    style={{ ...viewTransformStyle(view), width: fitted.width, height: fitted.height }}>
+    {/* <img>, mask <canvas> (width/height = natural size, CSS size 100%), data-region-id overlays */}
+  </div>
+</div>
+```
+
+- Map every pointer event with `clientToNatural(mediaRef.current, …)` (or the FIT-2940 `toPercentIn(mediaRef.current, …)`). `getBoundingClientRect()` already includes the zoom and pan, so never divide by the un-zoomed fitted size — strokes would land in the wrong place after zooming.
+- Pan runs in the capture phase and stops propagation, so a shape under the pointer never drags while panning. Give every shape / handle that has its own `onPointerDown` the `data-point-edit` attribute so the viewport skips it (no double select, no stroke on a shape).
+- Pass `maxScale` to every zoom call: the 100% preset of a very large image needs more than 20x the fitted view.
+- Let the toolbar wrap (`flexWrap: "wrap"`): the labeling panel is narrow, and a single-row toolbar (or a fixed toolbar `height`) clips the zoom presets out of view.
+- Brush / eraser size stays in natural px; draw its cursor at `brushSize * (rect.width / natural.width)` screen px.
+- Keep the `data-shell-layout-epoch` attribute so the shell's relation connectors follow the zoomed image.
