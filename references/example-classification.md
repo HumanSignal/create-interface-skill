@@ -15,9 +15,18 @@ function SentimentScreen(props) {
   ];
   const text = getField(props.task.data, props.params?.textField) ?? "No text provided.";
   const selected = (props.regions || []).find(r => r.type === "choices");
+  const disabled = props.readOnly || !!selected?.locked;
 
   function select(label) {
-    if (selected) props.deleteRegion(selected.id);
+    // Change the existing choice in place: the shell rejects edits to a locked region,
+    // but a delete + add would keep the locked choice and add a second one (FIT-3076).
+    if (disabled) return;
+    if (selected) {
+      props.updateRegion(selected.id, {
+        labels: [label.name], colors: [label.color || "#6b7280"], text: label.name,
+      });
+      return;
+    }
     const id = "sentiment-" + Date.now();
     props.addRegion({
       id, type: "choices", labels: [label.name], colors: [label.color || "#6b7280"],
@@ -45,16 +54,16 @@ function SentimentScreen(props) {
           const color = label.color || "var(--color-primary-surface)";
           return (
             <button key={label.name}
-              onClick={() => !props.readOnly && select(label)}
-              disabled={props.readOnly}
+              onClick={() => select(label)}
+              disabled={disabled}
               style={{
                 padding: "8px 24px",
                 border: "1px solid " + (isSelected ? color : "var(--color-neutral-border)"),
                 borderRadius: 6, fontSize: 13, fontWeight: 600,
-                cursor: props.readOnly ? "default" : "pointer",
+                cursor: disabled ? "default" : "pointer",
                 background: isSelected ? color : "var(--color-neutral-surface)",
                 color: isSelected ? "var(--color-neutral-on-dark-content)" : "var(--color-neutral-content)",
-                opacity: props.readOnly ? 0.6 : 1,
+                opacity: disabled ? 0.6 : 1,
                 transition: "all 0.15s ease",
               }}
             >{label.name}</button>

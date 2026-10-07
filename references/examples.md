@@ -61,14 +61,20 @@ const STYLE_TEXT = `
 `;
 
 const TextClassification = (props) => {
-  const { task, regions, params, addRegion, deleteRegion, readOnly } = props;
+  const { task, regions, params, addRegion, updateRegion, readOnly } = props;
   const text = getField(task.data, params?.textField ?? "text") ?? "";
   const labels = params?.labels ?? [];
-  const selected = regions[0]?.labels?.[0] ?? null;
+  const current = (regions || []).find((r) => r.type === "choices");
+  const selected = current?.labels?.[0] ?? null;
+  const disabled = readOnly || !!current?.locked;
 
   const choose = (label) => {
-    if (readOnly) return;
-    if (regions[0]) deleteRegion(regions[0].id);
+    if (disabled) return;
+    // Change the choice in place: a locked region rejects updateRegion, so a single choice stays single.
+    if (current) {
+      updateRegion(current.id, { labels: [label], text: label });
+      return;
+    }
     addRegion({
       id: `cls-${Date.now()}`,
       type: "choices",
@@ -93,10 +99,10 @@ const TextClassification = (props) => {
         {labels.map((label) => (
           <button
             key={label}
-            disabled={readOnly}
+            disabled={disabled}
             onClick={() => choose(label)}
             className={`text-classification__btn ${selected === label ? 'text-classification__btn--selected' : ''}`}
-            style={{ cursor: readOnly ? "default" : "pointer" }}
+            style={{ cursor: disabled ? "default" : "pointer" }}
           >
             {label}
           </button>
@@ -237,7 +243,7 @@ every `inputSchema` dataField `default`:
 
 This example demonstrates the full pattern: configurable labels and data
 field via `paramsSchema`, **`inputSchema` for Data I/O**, the screen reading
-`params` and `regions` from props, mutation through `addRegion`/`deleteRegion`
+`params` and `regions` from props, mutation through `addRegion`/`updateRegion`
 (not local state), read-only handling, round-trip serialization that keeps
 `outputSchema` keys aligned with `getResults` `from_name` values, and
 preview task data so INPUT EXAMPLE / Preview are not empty.
