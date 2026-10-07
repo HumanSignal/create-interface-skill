@@ -81,6 +81,8 @@ Declares the annotation output fields this interface produces. This is critical 
 
 The schema is a JSON Schema object. Use `$param` to reference a paramsSchema key so enum values stay in sync with configurable labels.
 
+**Fields are optional by default (FIT-3078)**: classic parity — a classic `<TextArea>`, `<Choices>` or `<Rating>` is optional unless `required="true"`, so an annotator can submit an empty annotation. Add a field to `outputSchema.required` (and show a required marker) only when the user asks for it to be required / mandatory; a caption, description or comment box is optional unless the user says otherwise.
+
 **Required fields**: Any control marked required in the UI (textarea, choices, keypoints the user must place, etc.) MUST appear in `outputSchema.required`. Preview and submit/update validate against that list — a UI-only asterisk is not enough. Draft autosave does not block on outputSchema (partial work-in-progress is allowed).
 
 ```js
@@ -107,7 +109,7 @@ Field type patterns:
 | Single-choice (radio/select) | `"string"` | `enum: [...], "$param": "labels"` | `"Positive"` |
 | Multi-choice (checkboxes) | `"array"` | `items: { type: "string", enum: [...], "$param": "labels" }` | `["A", "B"]` |
 | Multi-select image URLs / string lists | `"array"` | `items: { type: "string" }` (no `enum` on items) | `["url1", "url2"]` |
-| Free text (textarea) | `"string"` | none | `"some text"` |
+| Free text (textarea) | `"string"` | none (omit the `textarea` result when the trimmed text is empty — never emit `text: [""]`) | `"some text"` |
 | Date / time | `"string"` | `format: "date-time"` (or `"date"` / `"time"`) | `"2024-05-01T10:15:30"` |
 | Several dates / times | `"array"` | `items: { type: "string", format: "date-time" }` | `["2024-05-01T10:15:30", ...]` |
 | Boolean (yes/no) | `"boolean"` | none | `true` |

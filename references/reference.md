@@ -1047,6 +1047,13 @@ Declares what each annotation produces. **Required for Prompter (auto-labeling)
 integration.** Each property key must match the `from_name` used in
 `getResults`.
 
+**Fields are optional by default (FIT-3078):** classic parity — a classic
+`<TextArea>`, `<Choices>` or `<Rating>` is optional unless `required="true"`, so an
+annotator can submit an empty annotation. Add a field to `outputSchema.required`
+only when the user asks for it to be required / mandatory; a caption, description
+or comment box is optional unless the user says otherwise. For an optional free-text
+field, `getResults` omits the `textarea` result when the trimmed text is empty.
+
 **Required fields:** Any control the user must fill in (textarea, choices,
 keypoints they must place, etc.) MUST appear in `outputSchema.required`. Preview,
 submit, and update validate against that list — a UI-only asterisk or `required`
@@ -1299,6 +1306,10 @@ The editor's `validateInterface()` (`interface-utils.ts`) blocks save on:
   `getValidationErrors(regions, relations, params)` **and** call
   `props.onValidationChange?.(errors)` from a `useEffect` on region/form
   changes. Local error UI alone does not gate shell Submit/Update.
+  Never report a required / empty error for a field listed in
+  `outputSchema.required`: the shell already reports it, so the message would be
+  duplicated (FIT-3078). Use `getValidationErrors` only for rules the schema
+  cannot express.
 
 The Interface Builder AI agent loop runs the same checks via
 `validateInterfaceInSandbox()` (evaluates the module, then runs array/spatial
