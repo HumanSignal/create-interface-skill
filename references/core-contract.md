@@ -216,9 +216,9 @@ paramsSchema: {
     labels: {
       type: "labels",
       default: [
-        { name: "Positive", color: "#10b981" },
-        { name: "Negative", color: "#ef4444" },
-        { name: "Neutral", color: "#6b7280" },
+        { name: "Category A", color: "#10b981" },
+        { name: "Category B", color: "#ef4444" },
+        { name: "Category C", color: "#6b7280" },
       ],
       description: "Classification labels"
     },
@@ -228,11 +228,15 @@ paramsSchema: {
 
 The `"labels"` type is a custom type for annotation labels. Each entry has a `name` (string) and `color` (hex string). Entries can also have a `key` (short lowercase_snake identifier) — required when labels are referenced by `dependsOn.paramKey` in conditional fields. The config form renders an inline editor where the admin can add/remove/rename labels and pick colors.
 
+### Keep requested labels in sync (FIT-3064)
+
+When the user names the allowed labels or categories, use exactly that set everywhere. Treat labels shown in examples or the `interface init` starter (such as Positive / Negative / Neutral) as placeholders; never carry them into a different task. Update the `paramsSchema.labels.default`, any fallback label constant used by the component, and every `outputSchema` enum / `$param` mapping in the same edit. Do not leave starter labels in a fallback that appears when params are empty. Before finishing, run `label-studio-sdk interface validate <Screen.jsx>` and search the complete module for every label being replaced, including constants, `paramsSchema` defaults, and `outputSchema` enums. If the user reports that the preview still shows old labels, tell them to reload the preview page.
+
 In the component, read labels via:
 ```js
 const labels = props.params?.labels ?? [];
-// Each label: { name: "Positive", color: "#10b981" }
-// With key: { key: "positive", name: "Positive", color: "#10b981" }
+// Each label: { name: "Category A", color: "#10b981" }
+// With key: { key: "category_a", name: "Category A", color: "#10b981" }
 // To get just names: labels.map(l => l.name)
 // To get a color: labels.find(l => l.name === choice)?.color ?? "#6b7280"
 ```
