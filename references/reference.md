@@ -145,31 +145,6 @@ const AudioWaveformScreen = (props) => {
 
 Painting spans only on a `<canvas>` / SVG waveform updates the Regions panel after Create Relation, but **connector lines will not appear** unless each region also has a positioned DOM overlay with `data-region-id={region.id}` sized from `_start` / `_end` against the visible timeline (same pattern as wearable-activity). Do not draw relation SVG yourself — `ShellRelationsOverlay` owns connectors. On pan/zoom, bump `data-shell-layout-epoch` so the overlay recomputes.
 
-### Relations are shell-owned
-
-The shell stores, links, draws, labels and (as a fallback) serializes relations. A Screen:
-
-- puts exactly **one** `data-region-id={region.id}` on each visible region's painted geometry (not lists, badges, sidebar buttons or `sr-only` elements; a duplicate id on a larger element wins);
-- bumps `data-shell-layout-epoch` on a wrapper when pan/zoom/frame changes move regions via SVG attributes or transforms;
-- routes region clicks through `props.selectRegion(id)` — while `props.relationLinkingSource` is set that click completes the relation, whatever tool is active, and must not start a draw/drag gesture; `selectRegion(null)` does not cancel linking (only Escape, `alt+r` again, or `setRelationLinkingSource(null)` do);
-- starts linking from a "Create relation" control with `props.setRelationLinkingSource(selectedId)` (the Info panel button and `alt+r` do the same);
-- never draws relation SVG, never passes `props.relations` into a canvas component, and never wires a component's `onAddRelation` (`{ fromId, toId }`) to `props.addRelation` (`{ node1Id, node2Id, … }`).
-
-Relation labels (classic `<Relations><Relation value="…"/></Relations>`) are declared in `paramsSchema`:
-
-```js
-paramsSchema: {
-  type: "object",
-  properties: {
-    relationLabels: { type: "array", items: { type: "string" }, default: ["works_for", "founded_by"] },
-    relationChoice: { type: "string", enum: ["single", "multiple"], default: "multiple" },
-    defaultRelationLabels: { type: "array", items: { type: "string" }, default: [] },
-  },
-}
-```
-
-Entries may also be `{ value, color }`. The Relations panel renders the picker (edits go through `updateRelation`), the overlay draws labels on arcs, and relations created by linking get `defaultRelationLabels`. `addRelation` ignores a relation over an existing ordered pair (classic parity); deleting a region deletes its relations in the same undo step.
-
 ## Default component props (`DynamicScreenProps`)
 
 The `default` export receives this shape (from
@@ -197,14 +172,11 @@ interface DynamicScreenProps {
   // Call selectRegion once per gesture (not both onPointerDown and onClick).
   // Shell preserves multi-selection when re-clicking a selected member (group move).
 
-  addRelation(relation: ScreenRelation): void;          // no-op for an existing ordered pair
+  addRelation(relation: ScreenRelation): void;
   deleteRelation(id: string): void;
   rotateRelationDirection(id: string): void;
-  updateRelation?(id: string, patch: Partial<Pick<ScreenRelation, "labels" | "direction" | "visible">>): void;
   toggleRegionVisibility(id: string): void;
   toggleRegionLock(id: string): void;
-  relationLinkingSource?: string | null;               // region id being linked from
-  setRelationLinkingSource?(sourceId: string | null): void; // start / cancel shell linking
 }
 ```
 
@@ -1007,8 +979,8 @@ Required patterns for brush canvases with many regions:
    regions. **New region** must mint a new `id`, clear only the in-progress stroke canvas,
    and leave committed regions untouched (do not `updateRegion` prior ids with empty masks
    or reset their `_pixelCount`). Pass a fresh `{ imageDataURL: canvas.toDataURL(...) }` or
-   `rle.slice()` on every `addRegion`. Prefer `ImageCanvas` with `tools={["bitmask","eraser"]}`
-   when Interface Components are available. The same rule applies to `bitmasklabels` PNG masks.
+   `rle.slice()` on every `addRegion`. Hand-rolled bitmask / brush canvases must keep
+   per-region mask isolation. The same rule applies to `bitmasklabels` PNG masks.
 
 The editor-shell also treats `_offsetX` / `_offsetY`-only `updateRegion` patches as
 **transient** (no undo snapshot or draft write per frame) for interfaces that still
@@ -1208,9 +1180,7 @@ const GridCell = ({ task, params, onClick }) => {
 
 Pre-mutation hook — return `false` to reject, a modified `RegionChange` to
 alter, or `void` to allow. Runs on every region/relation mutation. Keep it
-cheap. Exception: the `deleteRelation` changes cascaded from a region delete are
-reported but not vetoable (their return value is ignored) — veto the region
-`delete` to keep its relations.
+cheap.
 
 ### `regionSchema` / `structure`
 

@@ -6,7 +6,7 @@ Agent skill for building HumanSignal Interfaces (custom labeling screens for
 Label Studio Enterprise) in your own editor or agent.
 
 ```bash
-npx skills add humansignal/create-interface-skill --skill create-interface-skill -g -a claude-code   # or: -a codex / -a cursor
+npx skills add humansignal/create-interface-skill#lse-release/2.37.0 --skill create-interface-skill -g -a claude-code   # or: -a codex / -a cursor
 ```
 
 The content is generated from the same skill modules the in-app "Create with
