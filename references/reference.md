@@ -717,6 +717,8 @@ function parseResults(results) {
 
 Use when the annotator **reorders a list** (images, items, URLs) via drag-and-drop. Same pass-through serialization as multi-select image URLs: one stable region (`ranking-main`), order in `_rankedUrls`, **at most one** result from `getResults`.
 
+Render from `rankingRegion?._rankedUrls ?? defaultItems` each render and create the region **lazily**: on a user move/drop check the current `regions` and `addRegion` it if missing, else `updateRegion`. **Never seed it on mount** — the screen first renders before saved results load, so a mount seed overwrites the saved ranking (FIT-3080). An untouched default then emits no result, so keep `ranking` out of `required` unless the user asks. Bucket boards (pool + named buckets): see the bucket variant in the spatial-bounding module (`_buckets` → one `labels` result per bucket with a bare id array; no `"x-ls-type": "ranker"`, which older on-prem versions reject).
+
 | Field | Value |
 |-------|-------|
 | outputSchema | `ranking: { type: "array", items: { type: "string" } }` — prefer explicit `items`; bare `{ type: "array" }` also works |
@@ -735,7 +737,7 @@ const outputSchema = {
       description: "Ordered image URLs, most relevant first",
     },
   },
-  required: ["ranking"],
+  // no required: ["ranking"] — the region is created on the first move
 };
 
 function getResults(regions, relations) {
@@ -794,7 +796,7 @@ function parseResults(results) {
 }
 ```
 
-Never keep item order in `useState` — render from `rankingRegion._rankedUrls` only. See the ranking UI rules in CreateInterfaceModal for drag-and-drop patterns.
+Never keep item order in `useState` — render from `rankingRegion?._rankedUrls ?? defaultItems` only. See the ranking UI rules in CreateInterfaceModal for drag-and-drop patterns.
 
 ### Spatial per region — keypoints / image marks (`array` + `items.enum`)
 
@@ -1408,7 +1410,7 @@ the labeling output should be (→ drives `getResults` and `outputSchema`).
 | `window.TWEAK_DEFAULTS` + `<TweaksPanel>` + `__activate_edit_mode` / `__deactivate_edit_mode` postMessage | Translate the defaults to `paramsSchema` (each tweak key becomes a property with its default as `default:`). **Delete** the panel UI and the postMessage listener — that's a Claude Design host contract, not Label Studio's. Project-level configuration renders from `paramsSchema` in Labeling Settings. |
 | Top-level mock data (`INITIAL_SPANS`, `T_SECONDS`, video URL, signal arrays) | Decide per constant: data that varies per task → read from `props.task.data` via `getField`; static fixtures (severity color tables, channel definitions) → keep inline; deterministic synthetic data (PRNG signals) → keep only if the demo must work without real data, otherwise replace with task data. |
 | Local region state (`const [spans, setSpans] = useState(INITIAL_SPANS)`) | Read from `props.regions`; mutate via `addRegion` / `updateRegion(id, patch)` / `deleteRegion(id)`. **Reuse existing `region.id` — never regenerate inside render.** Domain fields (severity, notes, start/end seconds, channel id) go under underscore-prefixed keys (`_severity`, `_notes`, `_startSec`, `_endSec`, `_channelId`); `region.text` is the human label for the outliner panel. |
-| Ranking / reorder UI (`useState` for item order) | One region (`ranking-main`). **Render list from `rankingRegion._rankedUrls` only** — no `useState` for order/items and no `useEffect` syncing regions into state (causes duplicate rows on drag). Seed once with `addRegion`; reorder with `updateRegion` only. `useState` OK for `draggedIndex` / drag UI chrome only. |
+| Ranking / reorder UI (`useState` for item order) | One region (`ranking-main`). **Render list from `rankingRegion?._rankedUrls ?? defaultItems` only** — no `useState` for order/items and no `useEffect` syncing regions into state (causes duplicate rows on drag). No mount seed (it runs before saved results load and overwrites them): on each move `addRegion` if missing, else `updateRegion`. `useState` OK for `draggedIndex` / drag UI chrome only. |
 | NER/text span mock data (`INITIAL_ENTITIES`, highlighted words, extracted entity strings) | Convert each entity to a region with absolute `_start` / `_end` offsets into the original task text and `_text` equal to `text.slice(start, end)`. Do not use `text.indexOf(entity.text)` during render; repeated entities will highlight the wrong occurrence. |
 | Image click / keypoint mock data (pins on a photo, bbox corners) | One region per mark with `_x`, `_y`, `_width`, `_hasCoords: true`. `getResults` emits one `keypointlabels` (or `rectanglelabels`) result per mark with `value: { x, y, keypointlabels: [...] }`. Never aggregate coordinates into `"label@x,y"` strings or a single bare array. |
 | `<link rel="stylesheet" href="colors_and_type.css">` | Inline the `:root { --color-...: ...; }` block as a `<style>` element rendered inside the component. The iframe cannot reach the parent's stylesheets and the relative path won't resolve. |

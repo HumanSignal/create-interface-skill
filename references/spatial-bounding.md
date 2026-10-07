@@ -238,34 +238,34 @@ When the interface collects a ranked or reordered list (images, items, URLs):
 - **One ranking region only** — use a **stable string id** (e.g. `'ranking-main'`). **Never** `'ranking-' + Date.now()` or a new id on each reorder.
 - **Never** keep item order in `useState` (`setOrder`, `setItems`, `setRankedUrls`, etc.) — duplicate rows appear on drag.
 - **Never** `useEffect` that copies `regions` / `_rankedUrls` into local state.
-- **Render the list only from** `rankingRegion._rankedUrls` (derived each render). Drag handlers call `updateRegion` only.
-- On mount, `useEffect` seeds **once** when no region with that id exists. Include `regions` in deps.
+- **Never seed the region on mount** (no `useEffect` → `addRegion` "when no region exists"): the screen first renders with `regions = []` before saved results load, so a mount seed overwrites the saved ranking with the default order and marks the annotation edited (FIT-3080).
+- **Render the list only from** `rankingRegion?._rankedUrls ?? defaultItems` (derived each render — the default needs no region).
+- **On a user move / drop**, check the current `regions` (the same render-scope value the snippet uses — `props.regions` if you do not destructure): `addRegion` the stable region if it is missing, else `updateRegion(id, patch)`.
 - `getResults` must return **at most one** result for the ranking `from_name`.
+- Lazy creation means an **untouched** default order emits **no result** — do not list the ranking in `outputSchema.required` unless the user asked for it.
 
 ```js
 const RANKING_REGION_ID = 'ranking-main';
 const images = getField(task.data, params.imagesField ?? 'images') || [];
 
-useEffect(() => {
-  if ((regions || []).some((r) => r.id === RANKING_REGION_ID)) return;
-  addRegion({
-    id: RANKING_REGION_ID,
-    type: 'labels',
-    text: 'Image ranking',
-    labels: [],
-    _rankedUrls: [...images],
-  });
-}, [regions, images, addRegion]);
-
 const rankingRegion = (regions || []).find((r) => r.id === RANKING_REGION_ID);
-const orderedUrls = rankingRegion?._rankedUrls ?? images;
+const orderedUrls = rankingRegion?._rankedUrls ?? images; // default derived each render — no seed
+
+function saveRanking(patch) {
+  const exists = (regions || []).some((r) => r.id === RANKING_REGION_ID); // checked at move time, not on mount
+  if (!exists) {
+    addRegion({ id: RANKING_REGION_ID, type: 'labels', text: 'Image ranking', labels: [], _rankedUrls: [], ...patch });
+  } else {
+    updateRegion(RANKING_REGION_ID, patch);
+  }
+}
 
 function moveItem(fromIndex, toIndex) {
   if (readOnly || fromIndex === toIndex) return;
   const next = [...orderedUrls];
   const [moved] = next.splice(fromIndex, 1);
   next.splice(toIndex, 0, moved);
-  updateRegion(RANKING_REGION_ID, { _rankedUrls: next });
+  saveRanking({ _rankedUrls: next });
 }
 
 // JSX: orderedUrls.map((url, index) => <Card key={url + ':' + index} ... />)
@@ -284,7 +284,7 @@ outputSchema: {
       description: "Ordered image URLs, most relevant first",
     },
   },
-  required: ["ranking"],
+  // no required: ["ranking"] — an untouched default order emits no result (add it only if the user asks)
 },
 
 function getResults(regions, relations) {
@@ -312,6 +312,70 @@ function getResults(regions, relations) {
       labels: rel.labels || [],
     }));
   return [...regionResults, ...relationResults];
+}
+```
+
+**Bucket variant** (an "available" pool plus named buckets, e.g. *Relevant* / *Biased*; drag between, no duplicates): the same single `ranking-main` region holds one array per bucket in `_buckets`; the pool is **derived** (all items minus placed ones), never stored. Serialize **one `labels` result per bucket** with `value` = the bare id array, declared as `array` of strings in `outputSchema` — the same shape as the single-list recipe, accepted by every Label Studio version (do not use `"x-ls-type": "ranker"`: older on-prem versions reject it on Submit). (The empty `_rankedUrls` keeps the data-holder region out of the Regions panel.)
+
+```js
+const BUCKETS = ['relevant', 'biased'];
+const items = getField(task.data, params.itemsField ?? 'results') || []; // string ids / URLs
+const buckets = rankingRegion?._buckets ?? { relevant: [], biased: [] };
+const placed = new Set(BUCKETS.flatMap((b) => buckets[b] || []));
+const pool = items.filter((id) => !placed.has(id));
+
+function moveTo(itemId, bucket, index) { // bucket === null → back to the pool
+  if (readOnly) return;
+  const next = {};
+  for (const b of BUCKETS) next[b] = (buckets[b] || []).filter((id) => id !== itemId); // remove everywhere first
+  if (bucket && next[bucket]) next[bucket].splice(index ?? next[bucket].length, 0, itemId);
+  saveRanking({ _buckets: next }); // same event-time addRegion-or-updateRegion as above
+}
+
+// outputSchema.properties: relevant / biased = { type: "array", items: { type: "string" }, description: "..." }
+// do not include bucket names in outputSchema.required — an untouched board emits no results
+function getResults(regions, relations) {
+  const rankingRegion = (regions || []).find((r) => r.id === RANKING_REGION_ID);
+  const bucketResults = rankingRegion?._buckets
+    ? BUCKETS.map((b) => ({ id: RANKING_REGION_ID + "-" + b, from_name: b, to_name: "results", type: "labels",
+        value: rankingRegion._buckets[b] || [], origin: "manual" }))
+    : [];
+  const relationResults = (relations || [])
+    .filter((rel) => rel.node1Id && rel.node2Id)
+    .map((rel) => ({ id: rel.id, from_name: "", to_name: "", type: "relation", value: {}, from_id: rel.node1Id,
+      to_id: rel.node2Id, direction: rel.direction, labels: rel.labels || [] }));
+  return [...bucketResults, ...relationResults];
+}
+function parseResults(results) {
+  const allResults = results || [];
+  const own = allResults.filter((r) => BUCKETS.includes(r.from_name));
+  // One region for any bucket result, even an empty / mock value (SDK validator consistency check)
+  const _buckets = Object.fromEntries(BUCKETS.map((b) => {
+    const value = own.find((r) => r.from_name === b)?.value;
+    const items = Array.isArray(value) ? value : (value?.labels ?? value?.choices ?? []);
+    return [b, items];
+  }));
+  const regions = own.length
+    ? [{ id: RANKING_REGION_ID, type: "labels", labels: [], _rankedUrls: [], _buckets }]
+    : [];
+  const relationResults = allResults.filter((r) => r.type === "relation");
+  const regionMap = {};
+  for (const region of regions) regionMap[region.id] = region;
+  const relations = relationResults.map((rel) => {
+    const node1 = regionMap[rel.from_id];
+    const node2 = regionMap[rel.to_id];
+    return {
+      id: rel.id,
+      direction: rel.direction || "right",
+      visible: true,
+      labels: rel.labels || null,
+      node1Label: node1?.labels[0] || node1?.type || rel.from_id,
+      node2Label: node2?.labels[0] || node2?.type || rel.to_id,
+      node1Id: rel.from_id,
+      node2Id: rel.to_id,
+    };
+  });
+  return { regions, relations };
 }
 ```
 
