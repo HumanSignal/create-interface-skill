@@ -80,3 +80,11 @@ contract, and styling/accessibility requirements exactly.
   remount; persist only through the mutation callbacks and annotation results.
 - **Sample data.** Keep `task.json` compact and use the exact `default` task-data paths from every
   `dataField` in `paramsSchema` / `inputSchema`.
+- **Saving to Label Studio.** Create or update the interface **only** with
+  `label-studio-sdk interface sync <dir> --title "<Title>" --publish` (new interface; add `--workspace <id>`
+  when needed) or `label-studio-sdk interface sync <dir> --message "<change>"` (existing one, tracked by the
+  sidecar file; that creates an unpublished draft, so add `--publish` when new projects should use it). `sync` extracts `inputSchema` / `outputSchema` / `paramsSchema` from the module and stores
+  them with the code. **Never** `POST` / `PATCH` `/api/interfaces/` yourself: the server cannot read the schemas
+  from the code, so a hand-built request saves an empty `output_schema` / `input_schema` without any error, and
+  projects created from the interface lose their Data Manager annotation filters. After syncing, confirm
+  `GET /api/interfaces/<id>/` returns a non-empty `output_schema`.
