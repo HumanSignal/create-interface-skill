@@ -338,7 +338,70 @@ getResults(regions, relations) {
 - **Never create an empty stub region on pointerdown** (`addRegion` with an empty mask, `_pixelCount: 0`) and fill it later with `updateRegion` — a new region does not exist until the stroke has painted pixels. Start a new region only on pointer-up, and skip `addRegion` when the stroke painted nothing.
 - **The region is the source of truth.** Store the committed mask (`_rle` or `_imageDataURL` / `imageDataURL` inside `_value`) and any derived stats (e.g. `_pixelCount`) on the region in that same commit. `getResults` must serialize from region fields only — never from a module-level or ref mask cache, which goes stale on undo/redo, task switches and Node-side validation.
 - Release the stroke from the canvas's own `onPointerUp` / `onPointerCancel` (with `setPointerCapture` on pointerdown), not from a `window` listener registered once in `useEffect(..., [])` — that listener closes over the first render's state (**FIT-3090:** a stale `pointerup` leaves only the pointerdown dab as a single-point region).
+- **One element owns the whole stroke (FIT-3151).** Put `onPointerDown`, `onPointerMove`, `onPointerUp` and `onPointerCancel` on the **same** element and call `setPointerCapture` on that same element (`event.currentTarget` in its own pointerdown handler). Capturing on a parent (e.g. a pan/zoom viewport `<div>`) while the child `<canvas>` holds move / up retargets every later event to the parent, so the canvas never sees the stroke. If pan or select also needs pointerdown, branch on the active tool inside that one handler instead of splitting the gesture across elements.
+- **Never end a stroke on `pointerleave` / `pointerout`.** Pointer capture fires them immediately (and at the image edge), committing only the first dab. End on `pointerup` (or `lostpointercapture`, guarded so it commits once) and discard on `pointercancel`.
 - If a screen still calls `addRegion` on pointerdown and again on pointer-up with the same id, the shell **replaces** the region (so the full stroke is kept) rather than dropping the second call or suffixing the id; do not rely on it for new code.
+
+**Hand-rolled brush stroke wiring (FIT-3151)** — copy this shape; it satisfies every rule above. One `<canvas>` owns the gesture, pointerdown only starts local paint, and the region is committed once on release. `toNatural`, `stampLine` (sets `painted`), `mergeMasks`, `maskToRle`, `rleToMask`, `countPixels` and `redrawPreview` are your own helpers.
+
+```jsx
+const strokeRef = useRef(null); // { mask, last, painted } only while the pointer is down
+
+const onStrokeDown = (event) => {
+  if (props.readOnly || event.button !== 0) return;
+  if (tool === "pan") return startPan(event); // other tools branch HERE, not on a parent element
+  event.currentTarget.setPointerCapture(event.pointerId); // capture on the element that owns move / up
+  const point = toNatural(event);
+  strokeRef.current = { mask: new Uint8Array(naturalWidth * naturalHeight), last: point, painted: false };
+  stampLine(strokeRef.current, point, point); // local paint only; the region is committed on release
+  redrawPreview(strokeRef.current);
+};
+
+const onStrokeMove = (event) => {
+  const stroke = strokeRef.current;
+  if (!stroke) return;
+  const point = toNatural(event);
+  stampLine(stroke, stroke.last, point);
+  stroke.last = point;
+  redrawPreview(stroke);
+};
+
+const onStrokeUp = () => {
+  const stroke = strokeRef.current;
+  strokeRef.current = null; // also makes the lostpointercapture call after pointerup a no-op
+  redrawPreview(null);
+  if (!stroke || !stroke.painted) return;
+  // Continue the last region only while it is still editable and carries the active label.
+  const target = (props.regions || []).find(
+    (r) => r.id === continueRegionId && !r.locked && !r.hidden && (r.labels || [])[0] === activeLabel,
+  );
+  const mask = target ? mergeMasks(rleToMask(target._rle), stroke.mask) : stroke.mask;
+  const patch = { _rle: maskToRle(mask), _pixelCount: countPixels(mask), _originalWidth: naturalWidth, _originalHeight: naturalHeight };
+  if (target) {
+    props.updateRegion(target.id, patch);
+    return;
+  }
+  const id = crypto.randomUUID();
+  props.addRegion({ id, type: "brushlabels", labels: [activeLabel], ...patch });
+  setContinueRegionId(id); // "New region" sets this back to null and calls props.selectRegion(null)
+  if (props.settings?.selectAfterCreate) props.selectRegion(id);
+};
+
+const onStrokeCancel = () => {
+  strokeRef.current = null;
+  redrawPreview(null);
+};
+
+<canvas
+  ref={overlayRef}
+  onPointerDown={onStrokeDown}
+  onPointerMove={onStrokeMove}
+  onPointerUp={onStrokeUp}
+  onPointerCancel={onStrokeCancel}
+  onLostPointerCapture={onStrokeUp}
+  style={{ touchAction: "none" }}
+/>
+```
 
 **Multiple brush / bitmask regions (FIT-3031 — CRITICAL):** each committed region must own an **independent** mask snapshot. Sharing one `_value` object, one `imageDataURL` string you later clear, one `Uint8Array` / `ImageData` buffer, or one module-level "current mask" across regions makes the first row go to `0 px` / vanish from the Regions panel while paint still shows on the canvas.
 - On **New region** / starting another object / region: mint a **new** `id`, clear **only** the in-progress stroke canvas, and leave every already-committed region in `props.regions` untouched — never `updateRegion` prior ids with an empty mask, never reset their `_pixelCount`, never reuse the previous region's `id`.
