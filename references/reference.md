@@ -1005,7 +1005,10 @@ Required patterns for brush canvases with many regions:
    any pixel count) on the region and serialize `getResults` from region fields, not from a
    module-level mask cache (FIT-2942). Prefer canvas `onPointerUp` + `setPointerCapture` over
    a `window` `pointerup` listener in `useEffect(..., [])` — a stale listener leaves a
-   single-point region (FIT-3090).
+   single-point region (FIT-3090). One element owns the whole stroke: pointerdown / move /
+   up / cancel and `setPointerCapture` all on the same element — capturing on a parent
+   viewport while the child canvas handles move / up, or ending the stroke on
+   `pointerleave`, also commits only the first dab (FIT-3151).
 5. **One independent mask per region (FIT-3031)** — never share a `_value` object, a
    mutable `imageDataURL` / `Uint8Array` buffer, or a module-level "current mask" across
    regions. **New region** must mint a new `id`, clear only the in-progress stroke canvas,
