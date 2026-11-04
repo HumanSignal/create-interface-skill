@@ -78,6 +78,10 @@ contract, and styling/accessibility requirements exactly.
   *"Module missing 'default' function export."*
 - **No persistent storage.** `localStorage` / `sessionStorage` are in-memory shims that reset on every iframe
   remount; persist only through the mutation callbacks and annotation results.
+- **Links.** `<a href="https://...">` clicks and `window.open(url)` open in a new browser tab through the host
+  (https and `/` app paths only; `window.open` returns `null`). Pages that refuse framing, such as
+  sign-in-protected Google Docs, cannot be shown in an `<iframe>` inside the screen; link to them instead. Google
+  Docs deep-links only to headings (`#heading=h.…`) and bookmarks (`#bookmark=id.…`).
 - **Sample data.** Keep `task.json` compact and use the exact `default` task-data paths from every
   `dataField` in `paramsSchema` / `inputSchema`.
 - **Saving to Label Studio.** Create or update the interface **only** with
