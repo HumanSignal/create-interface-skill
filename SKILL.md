@@ -58,7 +58,7 @@ contract, and styling/accessibility requirements exactly.
 ## Runtime notes for local authoring
 
 - **Injected globals.** Beyond the `React` / hooks / `getField` globals listed in
-  `core-contract`, the sandbox injects `EditorUI` (the `@humansignal/ui` namespace) and
+  `core-contract`, the sandbox injects `EditorUI` (the Screen-facing `@humansignal/ui` subset) and
   `EditorDeps` (e.g. `EditorDeps.audioDecoder.WasmStreamingDecoder`, `EditorDeps.video.probeFrameRate`).
 - **Do not reference `window.InterfaceComponents`** (`AudioCanvas`, `useComponentHotkeys`) — they are
   gated behind `fflag_interfaces_components`, which is off. Build audio interfaces with
