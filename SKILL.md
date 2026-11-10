@@ -63,7 +63,9 @@ contract, and styling/accessibility requirements exactly.
 - **Do not reference `window.InterfaceComponents`** (`AudioCanvas`, `useComponentHotkeys`) — they are
   gated behind `fflag_interfaces_components`, which is off. Build audio interfaces with
   `EditorDeps.audioDecoder.WasmStreamingDecoder` as shown in `core-contract` and `example-audio`, and
-  ignore any `InterfaceComponents` recipes in `reference.md`.
+  ignore any `InterfaceComponents` recipes in `reference.md`. The one exception is the Data Collection
+  surface (`window.InterfaceComponents.useCollectionSubmission`, `CollectionUploader`, `MediaCard`,
+  `serializeSubmissionRegions`), which is always available: follow `collection-upload` when it applies.
 - **`EditorUI` two-path trap.** `EditorUI` is injected only inside the runtime iframe, **not** in the
   admin-time eval that extracts `paramsSchema`. A top-level `EditorUI` reference throws
   `EditorUI is not defined` and silently breaks `paramsSchema` in Labeling Settings. Reference it inside
