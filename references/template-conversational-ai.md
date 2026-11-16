@@ -111,10 +111,14 @@ function getResults(regions, relations, context) {
           : region,
       )
     : list;
-  const answers = AnswerForm.answersToResults(gated, {
-    toName: DEFAULTS.objectName,
-    ...(fields ? { fields, params } : {}),
-  }).map(withOrigin);
+  const unattached = isUnattachedAnswer(fields || []);
+  const answers = [
+    ...AnswerForm.answersToResults(
+      gated.filter((r) => !unattached(r)),
+      { toName: DEFAULTS.objectName, ...(fields ? { fields, params } : {}) },
+    ),
+    ...ungated(AnswerForm, gated.filter(unattached), { toName: DEFAULTS.objectName }),
+  ].map(withOrigin);
   const links = AnswerForm.toRelationResults(relations);
   return [...spans, ...messages, ...answers, ...links];
 }

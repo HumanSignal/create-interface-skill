@@ -117,10 +117,15 @@ function getResults(regions, relations, context) {
   // Per-region results repeat the segment's original_length by default; every result carries an origin. With the
   // shell params, answers hidden by whenLabelValue are not submitted (classic); validators pass no params.
   const params = context && context.params;
-  const answers = AnswerForm.answersToResults(list, {
-    toName: DEFAULTS.audioName,
-    ...(params ? { fields: buildFields(resolveConfig(params)), params } : {}),
-  }).map((result) => ({
+  const fields = params ? buildFields(resolveConfig(params)) : [];
+  const unattached = isUnattachedAnswer(fields);
+  const answers = [
+    ...AnswerForm.answersToResults(
+      list.filter((r) => !unattached(r)),
+      { toName: DEFAULTS.audioName, ...(params ? { fields, params } : {}) },
+    ),
+    ...ungated(AnswerForm, list.filter(unattached), { toName: DEFAULTS.audioName }),
+  ].map((result) => ({
     ...result,
     origin: result.origin || "manual",
   }));

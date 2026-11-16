@@ -115,11 +115,15 @@ function getResults(regions, _relations, ctx) {
   const fromName = labelFromName(defaults);
   const toName = tsToName(defaults);
   // With the shell params, answers whose question is hidden are not submitted (classic); validators pass none.
-  const answers = IC.AnswerForm.answersToResults(list, {
-    toName,
-    getGeometry: tsGeometry,
-    ...(ctx && ctx.params ? { fields: answerFields(ctx.params), params: ctx.params } : {}),
-  });
+  const fields = ctx && ctx.params ? answerFields(ctx.params) : [];
+  const unattached = isUnattachedAnswer(fields);
+  const answers = [
+    ...IC.AnswerForm.answersToResults(
+      list.filter((r) => !unattached(r)),
+      { toName, getGeometry: tsGeometry, ...(ctx && ctx.params ? { fields, params: ctx.params } : {}) },
+    ),
+    ...ungated(IC.AnswerForm, list.filter(unattached), { toName, getGeometry: tsGeometry }),
+  ];
   // Stable, classic-like order: each region's choices before its rating, whatever order they were answered in.
   const first = new Map();
   answers.forEach((r, i) => first.has(r.id) || first.set(r.id, i));
