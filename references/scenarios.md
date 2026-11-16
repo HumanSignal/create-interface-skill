@@ -90,7 +90,7 @@ afterward. Supported locator and action APIs include `locator`, `getByRole`, `ge
 `boundingBox`, `isVisible`, `isEnabled`, `isDisabled`, `isChecked`, `count`, `first`, `last`,
 `nth`, `filter`, `evaluate`, `evaluateAll`, and `waitFor`. Locators are strict: ambiguous matches fail.
 
-For interactions no locator expresses, `page` also exposes `mouse.move`/`down`/`up`/`click` (canvas
+For interactions no locator expresses, `page` also exposes `mouse.move`/`down`/`up`/`click`/`dblclick` (canvas
 drawing and drags — take coordinates from `boundingBox()`, never hardcode them), `keyboard.press` for
 held-key and shortcut behavior, `evaluate`, `waitForFunction`, `waitForTimeout`, and `addStyleTag`.
 Synchronize on `waitFor` or `waitForFunction`, not on `waitForTimeout` — a sleep either flakes or wastes
