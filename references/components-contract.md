@@ -117,7 +117,7 @@ Coordinates stay exactly as LS stores them (percent of the natural image/video s
 | Relations (every canvas chunk + AnswerForm) | `toRelationResults(relations, { regionIds? })` → classic `{ id?, type: "relation", from_id, to_id, direction, labels }` from shell `{ node1Id, node2Id, direction, labels }`; `fromRelationResults(results)` → shell relations for `parseResults`. Call through any loaded chunk, e.g. `InterfaceComponents.ImageCanvas.toRelationResults(relations)` — never hand-write the mapping |
 | Value controls | `to…(value, { fromName, toName, id? })` → one LS result or `null` (empty value); `from…(result)` → the control's `value` for `parseResults`. `ChoiceGroup.toChoicesResult` / `fromChoicesResult` (flat string[]; nested allowNested paths → TaxonomyTree or AnswerForm nested:true), `TaxonomyTree.toTaxonomyResult` / `fromTaxonomyResult` (string[][] paths), `TextInput.toTextAreaResult` / `fromTextAreaResult` (string[]), `NumberInput.toNumberResult` / `fromNumberResult` (number \| null), `DateTimeInput.toDateTimeResult` / `fromDateTimeResult` (string \| null), `RatingControl.toRatingResult` / `fromRatingResult` (number \| null), `PairwiseRanker.toPairwiseResult` / `fromPairwiseResult` ("left" \| "right" \| null), `PairwiseRanker.toRankingResult` / `fromRankingResult` (ordered ids), `RankerBoard.toRankerResult` / `fromRankerResult(result, name?)` (`{ column: ids[] }`; pass the board's `name` when it differs from `from_name`) |
 
-Compose them: canvases serialize their own regions, AnswerForm adds the answers, and relations come from `toRelationResults` (or the shell appends them when getResults emits none). The shell calls `getResults(regions, relations, { params })` — use `params` (optional: validators call it with two arguments) for param-dependent fields, e.g. `answersToResults(regions, { fields: buildFields(ctx?.params ?? {}), params: ctx?.params })` so `when.param` gates apply at submit. Example — boxes plus per-region and task-level answers, with no hand-written serializer:
+Compose them: canvases serialize their own regions, AnswerForm adds the answers, and relations come from `toRelationResults` (or the shell appends them when getResults emits none). The shell calls `getResults(regions, relations, { params })` — validators call it with two arguments, and Save validation round-trips every `outputSchema` key as an id-less, ungated Prompter prediction. So gate answers only when `ctx.params` is present — `answersToResults(regions, { toName, ...(ctx && ctx.params ? { fields: buildFields(ctx.params), params: ctx.params } : {}) })` — and parse with `resultsToAnswers(results, {})`; passing `fields` on the validation path drops gated answers and region answers without a target, failing `Annotation round-trip validation failed` (details in the AnswerForm skill). Example — boxes plus per-region and task-level answers, with no hand-written serializer:
 ```jsx
 const FIELDS = [
   { name: "quality", kind: "choices", label: "Image quality", options: ["Good", "Blurry"], toName: "image" },
@@ -130,7 +130,7 @@ function Screen(props) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 12, height: "100%" }}>
       <ImageCanvas
-        src={props.task.data.image}
+        imageUrl={props.task.data.image}
         regions={(props.regions || []).filter((r) => r._kind !== "answer")}
         selectedRegionIds={props.selectedRegionIds}
         activeLabels={["Car"]}
@@ -160,15 +160,26 @@ function Screen(props) {
 ({
   default: Screen,
   visibilitySupport: { unsupportedKinds: ["answer"] },
-  getResults(regions) {
+  outputSchema: {
+    type: "object",
+    properties: {
+      label: { type: "array", items: { type: "string", enum: ["Car", "Person"] } },
+      quality: { type: "string", enum: ["Good", "Blurry"] },
+      color: { type: "string", enum: ["Red", "Blue"] },
+    },
+  },
+  getResults(regions, relations, ctx) {
     return [
       ...window.InterfaceComponents.ImageCanvas.toImageResults(regions, { fromName: "label", toName: "image" }),
-      ...window.InterfaceComponents.AnswerForm.answersToResults(regions, { fields: FIELDS, toName: "image" }),
+      ...window.InterfaceComponents.AnswerForm.answersToResults(regions, {
+        toName: "image",
+        ...(ctx && ctx.params ? { fields: FIELDS, params: ctx.params } : {}),
+      }),
     ];
   },
   parseResults(results) {
     const labelColors = { Car: "#2563eb", Person: "#16a34a" };
-    const parsed = window.InterfaceComponents.AnswerForm.resultsToAnswers(results, { fields: FIELDS });
+    const parsed = window.InterfaceComponents.AnswerForm.resultsToAnswers(results, {});
     const boxes = window.InterfaceComponents.ImageCanvas.fromImageResults(parsed.rest, { labelColors });
     return { regions: window.InterfaceComponents.AnswerForm.attachAnswers(boxes, parsed) };
   },

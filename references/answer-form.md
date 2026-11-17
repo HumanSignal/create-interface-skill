@@ -13,14 +13,15 @@
 - `name` is the LS `from_name`; `kind` → result type: "choices" → `"choices"`, "taxonomy" → `"taxonomy"`, "textarea" → `"textarea"` (`{ text: [...] }`), "rating" → `"rating"`, "number" → `"number"`, "datetime" → `"datetime"`. "labels" relabels the target region (no own result).
 - `scope`: "task" (default, one answer), "region" (one per region; results share the region id and carry its geometry), "item" (one per `itemIndex`; results carry `item_index`).
 - `when` (all must hold): `label` (whenLabelValue), `tagName` (region's `_fromName`), `regionType`, `role`, `choice: { name, value, selected: false for "choice-unselected" }`, `itemIndex`, `regionSelected`. Gated-out answers are hidden, not validated and not submitted (classic).
-- `props` goes straight to the control (`{ layout: "radio" }`, `{ maxRating: 10 }`, `{ rows: 3 }`, `{ only: "date" }`).
+- `props` goes straight to the control (`{ layout: "radio" }`, `{ maxRating: 10 }` — RatingControl takes `max` or its classic alias `maxRating`, `{ rows: 3 }`, `{ only: "date" }`).
+- **outputSchema per kind** (one property per field `name`): "choices" → `{ type: "string", enum: [...] }` (multiple → `{ type: "array", items: { type: "string", enum: [...] } }`), "textarea" → `{ type: "string" }`, "number" → `{ type: "number" }`, "datetime" → `{ type: "string", format: "date-time" }`, and every kind whose classic result type is not plain JSON needs `"x-ls-type"`: "rating" → `{ type: "integer", "x-ls-type": "rating" }` (a bare `integer` expects a `number` result and rejects the `rating` result AnswerForm emits: `results[0].type must be "number"`), "taxonomy" → `"x-ls-type": "taxonomy"`, "pairwise" → `"x-ls-type": "pairwise"`, "ranker" → `"x-ls-type": "ranker"`. Region-scoped fields are declared the same way — the answer result carries its own `from_name`.
 - `nested: true` (choices; classic `<Choices allowNested>`): `options` are a tree (`{ value, children: [...] }`), the control is a tree and the value is a list of paths (`value.choices = [["Animal", "Cat"]]`); `when.choice` matches the leaf.
 - `when.param: { name, value?, not? }` gates on Screen params (pass `params={props.params}`; at submit pass `answersToResults(regions, { fields, params })` with the `params` getResults receives as its third argument `{ params }`).
 - Text (`kind: "textarea"`) commits on blur / Enter (Ctrl/Cmd+Enter when multi-row) and after a short typing pause — never per keystroke, so undo history stays clean; a pending draft is always written to the region it was typed for. `commitOn: "change"` commits every keystroke. Every other kind commits immediately.
 - Accessibility: composite controls (choices, taxonomy, labels, rating, custom `render`) sit in a group named by the question and keep their own control name; text / number / datetime inputs are named by the question with no wrapping group — the question is never announced twice. Pass `props: { ariaLabel }` to rename a control.
 
 ### Props
-`fields`, `regions={props.regions}`, `selectedRegionIds={props.selectedRegionIds}`, `addRegion={props.addRegion}`, `updateRegion={props.updateRegion}`, `deleteRegion={props.deleteRegion}`, `onValidationChange={props.onValidationChange}`, `readOnly={props.readOnly}`, `hotkeys={props.hotkeys}`, plus `toName`, `regionId`, `itemIndex` / `itemCount`, `showValidation`, `scopes`. Custom layouts: place fields with `<AnswerForm.Field name="..." />` inside `<AnswerForm>`, or pass a render function `{(answers) => ...}` (`answers.get(name)`, `answers.set(name, value)`, `answers.isVisible(name)`, `answers.errors`); `useAnswers()` reads the same controller inside children. Keyboard: field hotkeys only fire while that field is focused (several forms never collide); Alt+↓ / Alt+↑ move between questions of one form.
+`fields`, `regions={props.regions}`, `selectedRegionIds={props.selectedRegionIds}`, `addRegion={props.addRegion}`, `updateRegion={props.updateRegion}`, `deleteRegion={props.deleteRegion}`, `onValidationChange={props.onValidationChange}`, `readOnly={props.readOnly}`, `hotkeys={props.hotkeys}`, plus `toName`, `regionId`, `itemIndex` / `itemCount`, `showValidation`, `scopes`. Custom layouts: place fields with `<AnswerForm.Field name="..." />` inside `<AnswerForm>`, or pass a render function `{(answers) => ...}` (`answers.get(name)`, `answers.set(name, value)`, `answers.isVisible(name)`, `answers.errors`, `answers.target` — the region that region-scoped fields answer for: the explicit `regionId`, else the single selected region, else `null`; use it to show "Select a region" placeholders); `useAnswers()` reads the same controller inside children. Keyboard: field hotkeys only fire while that field is focused (several forms never collide); Alt+↓ / Alt+↑ move between questions of one form.
 
 ### Bulk region answers
 Opt in with `bulkRegionEditing`, `mutationRevision={props.mutationRevision}` and `applyRegionTransaction={props.applyRegionTransaction}`. With two or more selected objects, only region fields stage edits; task/item fields and single-region behavior retain their existing commits. Different values show an explicit mixed state, with no first-object value copied implicitly. Edit to replace that field on every target, Clear to delete it, Reset Field to remove its draft, then Apply for one atomic history entry or Cancel. Untouched fields and answer metadata stay unchanged.
@@ -39,7 +40,9 @@ const PAIR_FIELDS = [
 ];
 
 function PairScreen(props) {
-  const { AnswerForm, PairwiseRanker, RankerBoard } = window.InterfaceComponents;
+  const AnswerForm = window.InterfaceComponents.AnswerForm;
+  const PairwiseRanker = window.InterfaceComponents.PairwiseRanker;
+  const RankerBoard = window.InterfaceComponents.RankerBoard;
   const items = (props.task.data.items || []).map((item, i) => ({ id: String(item.id ?? i), title: String(item.title ?? item.id ?? i), body: String(item.text ?? "") }));
   return (
     <AnswerForm
@@ -91,7 +94,12 @@ function PairScreen(props) {
 Export `visibilitySupport: { unsupportedKinds: ["answer"] }` so the shell never hides answer regions.
 
 ### Serialization (one-liners)
-Helpers come from the AnswerForm chunk: `answersToResults(regions, { fields, toName, params?, getGeometry?, getResultExtras? })` (per-region results repeat the target's geometry and classic `original_width` / `original_height` / `image_rotation` / `original_length` from `_originalWidth` / `_originalHeight` / `_imageRotation` / `_originalLength` — nothing to add by hand), `resultsToAnswers(results, { fields })` → `{ answerRegions, perRegion, rest, orphanIds, orphans }` (`orphans: [{ id, toName, itemIndex?, reference }]` — per-region answers whose target has no geometry result of its own, e.g. answers on task messages; `reference` is the geometry the answers repeat, ready to rebuild the anchor region; with `fields` only declared from_names are answers; without them every classification result is claimed, so pass `canvasRegions: parsedCanvasRegions` / `isOwnedByCanvas(result)` / `excludeIds` when a canvas serializes its own textarea, e.g. DocumentCanvas transcriptions), `toRelationResults(relations)` / `fromRelationResults(results)`, `attachAnswers(regions, parsed)`, `isAnswerRegion(region)`, `collectAnswerErrors(regions, fields, { itemCount })`. Call them as `window.InterfaceComponents.AnswerForm.<helper>` directly inside `getResults` / `parseResults` / `getValidationErrors` — the sandbox loads every component the Screen references before it validates the module or hydrates saved results, so no `load()` / `getLoaded()` guard or fallback serializer is needed. Serialize the canvas regions with that canvas's helpers (`window.InterfaceComponents.ImageCanvas.toImageResults` / `fromImageResults`) and let AnswerForm add the answers.
+Helpers come from the AnswerForm chunk: `answersToResults(regions, { fields, toName, params?, getGeometry?, getResultExtras? })` (per-region results repeat the target's geometry and classic `original_width` / `original_height` / `image_rotation` / `original_length` from `_originalWidth` / `_originalHeight` / `_imageRotation` / `_originalLength` — nothing to add by hand), `resultsToAnswers(results, { fields? })` → `{ answerRegions, perRegion, rest, orphanIds, orphans }` (`orphans: [{ id, toName, itemIndex?, reference }]` — per-region answers whose target has no geometry result of its own, e.g. answers on task messages; `reference` is the geometry the answers repeat, ready to rebuild the anchor region; with `fields` only declared from_names are answers; without them every classification result is claimed, so pass `canvasRegions: parsedCanvasRegions` / `isOwnedByCanvas(result)` / `excludeIds` when a canvas serializes its own textarea, e.g. DocumentCanvas transcriptions), `toRelationResults(relations)` / `fromRelationResults(results)`, `attachAnswers(regions, parsed)`, `isAnswerRegion(region)`, `collectAnswerErrors(regions, fields, { itemCount })`. Call them as `window.InterfaceComponents.AnswerForm.<helper>` directly inside `getResults` / `parseResults` / `getValidationErrors` — the sandbox loads every component the Screen references before it validates the module or hydrates saved results, so no `load()` / `getLoaded()` guard or fallback serializer is needed. Serialize the canvas regions with that canvas's helpers (`window.InterfaceComponents.ImageCanvas.toImageResults` / `fromImageResults`) and let AnswerForm add the answers.
+
+**Save validation round-trips Prompter output — gate answers only at submit.** Save runs every `outputSchema` key through `parseResults` → `getResults` as a Prompter prediction: one result per key, **with no `id`, no geometry and every field filled** (so `blur_reason` arrives even though `quality` is "Good"), and fails with "Annotation round-trip validation failed" if any of them is not serialized back. Two AnswerForm defaults drop exactly those results: `answersToResults(regions, { fields })` omits answers whose `when` gate is false, and `resultsToAnswers(results, { fields })` files an id-less `scope: "region"` answer under `orphans` (no target region), which `attachAnswers` does not keep. So, as the catalog templates do:
+- `getResults(regions, relations, context)`: pass `fields` + `params` only when `context.params` is present — the shell always passes it at submit (hidden answers are not submitted, classic); validators pass none, so the prediction round-trips unchanged.
+- `parseResults`: call `resultsToAnswers(results, {})` without `fields`. Saved per-region answers still attach to their region (they share its id); an id-less prediction for a region field loads as a task-level answer instead of being dropped. Pass `excludeIds` / `isOwnedByCanvas` if a canvas emits its own classification results.
+- `outputSchema`: one property per field `name` (see "outputSchema per kind" above) plus the canvas field — spatial ImageCanvas labels are `{ type: "array", items: { type: "string", enum: [...labels] } }`.
 
 ```jsx
 const TO_NAME = "image";
@@ -112,7 +120,7 @@ function CarScreen(props) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 12, height: "100%" }}>
       <ImageCanvas
-        src={props.task.data.image}
+        imageUrl={props.task.data.image}
         regions={canvasRegions}
         selectedRegionIds={props.selectedRegionIds}
         activeLabels={activeLabels}
@@ -156,15 +164,31 @@ function CarScreen(props) {
 ({
   default: CarScreen,
   visibilitySupport: { unsupportedKinds: ["answer"] },
-  getResults(regions) {
+  outputSchema: {
+    type: "object",
+    properties: {
+      label: { type: "array", items: { type: "string", enum: ["Car"] } },
+      quality: { type: "string", enum: ["Good", "Blurry"] },
+      blur_reason: { type: "string", enum: ["Motion", "Focus"] },
+      color: { type: "string", enum: ["Red", "Blue"] },
+      plate: { type: "string" },
+      confidence: { type: "integer", minimum: 1, maximum: 5, "x-ls-type": "rating" },
+    },
+    required: ["quality"],
+  },
+  getResults(regions, relations, context) {
     return [
       ...window.InterfaceComponents.ImageCanvas.toImageResults(regions, { fromName: "label", toName: TO_NAME }),
-      ...window.InterfaceComponents.AnswerForm.answersToResults(regions, { fields: FIELDS, toName: TO_NAME }),
+      // Gate hidden answers only with the shell params (submit); validators pass none (see above).
+      ...window.InterfaceComponents.AnswerForm.answersToResults(regions, {
+        toName: TO_NAME,
+        ...(context && context.params ? { fields: FIELDS, params: context.params } : {}),
+      }),
     ];
   },
   parseResults(results) {
     const labelColors = { Car: "#2563eb" };
-    const parsed = window.InterfaceComponents.AnswerForm.resultsToAnswers(results, { fields: FIELDS });
+    const parsed = window.InterfaceComponents.AnswerForm.resultsToAnswers(results, {});
     const boxes = window.InterfaceComponents.ImageCanvas.fromImageResults(parsed.rest, { labelColors });
     return { regions: window.InterfaceComponents.AnswerForm.attachAnswers(boxes, parsed) };
   },

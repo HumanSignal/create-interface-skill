@@ -89,6 +89,10 @@ afterward. Supported locator and action APIs include `locator`, `getByRole`, `ge
 `selectOption`, `press`, `hover`, `focus`, `textContent`, `inputValue`, `getAttribute`,
 `boundingBox`, `isVisible`, `isEnabled`, `isDisabled`, `isChecked`, `count`, `first`, `last`,
 `nth`, `filter`, `evaluate`, `evaluateAll`, and `waitFor`. Locators are strict: ambiguous matches fail.
+`.locator()` is only on `page`: a locator cannot be chained with `.locator(...)` (the call throws a
+TypeError). Scope with one selector — `page.locator("[data-a] [data-b]")` — or chain the `getBy*` queries, which
+locators do support: `page.getByRole("group", { name: "Car color" }).getByRole("radio", { name: "Red" })`.
+`filter` accepts only `{ hasText }`.
 
 For interactions no locator expresses, `page` also exposes `mouse.move`/`down`/`up`/`click`/`dblclick` (canvas
 drawing and drags — take coordinates from `boundingBox()`, never hardcode them), `keyboard.press` for

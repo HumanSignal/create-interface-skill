@@ -4,7 +4,7 @@
 
 ## Interface Components: RatingControl
 
-`window.InterfaceComponents.RatingControl` replaces classic `<Rating>`. Props: `value` (number | null), `onChange(value)`, `type` ("stars" | "likert" | "numeric"), `max` (classic `maxRating`), `min`, `step`, `labels` (value → caption), `allowClear`, `readOnly`, `hotkeys`. Compound members: `RatingControl.Stars`, `RatingControl.Likert`, `RatingControl.Numeric`.
+`window.InterfaceComponents.RatingControl` replaces classic `<Rating>`. Props: `value` (number | null), `onChange(value)`, `type` ("stars" | "likert" | "numeric"), `max` (or its classic alias `maxRating`; `max` wins when both are set — default 5), `min`, `step`, `labels` (value → caption), `allowClear`, `readOnly`, `hotkeys`. Compound members: `RatingControl.Stars`, `RatingControl.Likert`, `RatingControl.Numeric`.
 
 Result: `{ type: "rating", value: { rating: 4 } }`.
 
