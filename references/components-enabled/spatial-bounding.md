@@ -251,4 +251,5 @@ A toolbar tool labeled **Brush** (paint / freehand mask / semantic-segmentation 
 
 ### Image navigation & selection tools (FIT-3066)
 
-Image screens (bitmask, brush / segmentation, boxes, polygons) must keep the classic navigation & selection tools: Select (V), Pan (H / Space-drag), Zoom in / out, the zoom %, and the Fit (Shift+1) / 100% (Shift+2) presets. `ImageCanvas` renders all of them in its default toolbar — keep it (do not pass `showToolbar={false}`), or include `ImageCanvas.Tool tool="select"`, `ImageCanvas.Tool tool="pan"` and `ImageCanvas.ZoomControls` in a composed toolbar.
+Image screens (bitmask, brush / segmentation, boxes, polygons, and display-only image classification / multi-image pagers — FIT-3082) must keep the classic navigation & selection tools: Select (V), Pan (H / Space-drag), Zoom in / out, the zoom %, and the Fit (Shift+1) / 100% (Shift+2) presets. `ImageCanvas` renders all of them in its default toolbar — keep it (do not pass `showToolbar={false}`), or include `ImageCanvas.Tool tool="select"`, `ImageCanvas.Tool tool="pan"` and `ImageCanvas.ZoomControls` in a composed toolbar.
+For a classification screen that draws nothing, pass `tools={[]}` (Pan and zoom stay); several images go in `ImageCanvas.Group`, and composed Group children must include `<ImageCanvas.Group.Toolbar />`.

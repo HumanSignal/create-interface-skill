@@ -391,7 +391,7 @@ A toolbar tool labeled **Brush** (paint / freehand mask / semantic-segmentation 
 
 ### Image navigation & selection tools (FIT-3066)
 
-Every screen that annotates an image (bitmask, brush / segmentation masks, boxes, polygons, keypoints) must render the navigation & selection tools that the classic image editor always shows, next to the drawing tools:
+Every screen that annotates an image (bitmask, brush / segmentation masks, boxes, polygons, keypoints) must render the navigation & selection tools that the classic image editor always shows, next to the drawing tools. Screens that only display images (image classification, multi-image pagers, comparisons — FIT-3082) need the same Pan, Zoom and Fit / 100% tools; Select only matters once the screen draws regions:
 
 - **Select** (V) — selects and moves existing regions; never paints or draws. A click on a region calls `props.selectRegion(id, { additive: event.ctrlKey || event.metaKey })`; a click on empty image clears the selection.
 - **Pan** (H, or hold Space / drag with the middle mouse button from any tool) — drags the zoomed image.

@@ -386,4 +386,5 @@ function MainAndReferenceScreen(props) {
 }
 ```
 - Do NOT render one ImageCanvas per image with its own toolbar and tool state; use the group.
+- Composed children replace the default layout, so always include `<ImageCanvas.Group.Toolbar />` next to `ImageCanvas.Group.Pager` / `ImageCanvas.Group.Items` — a pager without it leaves annotators with no Pan / Zoom / Fit (FIT-3082). Classification over images uses the group too: pass `tools={[]}` when nothing is drawn.
 - Do NOT filter regions to the first view; pass every view's regions — the group scopes them per item.
