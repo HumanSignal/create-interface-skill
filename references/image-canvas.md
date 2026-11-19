@@ -37,7 +37,7 @@ Tools are pluggable: pass exactly the ones the project needs in `tools` (each ha
 | RectangleLabels (three-point) | "rectangle3point" | Shift+R | "rectanglelabels" |
 | PolygonLabels | "polygon" | P | "polygonlabels" |
 | Named pose (native extension) | "pose" | Shift+J | "poselabels" |
-| Projected cuboid (native extension) | "cuboid" | Shift+C | "cuboidlabels" |
+| Projected cuboid (native extension) | "cuboid" | Shift+X | "cuboidlabels" |
 | EllipseLabels | "ellipse" | E | "ellipselabels" |
 | KeyPointLabels | "keypoint" | K | "keypointlabels" |
 | VectorLabels | "vector" | Shift+P | "vectorlabels" |
