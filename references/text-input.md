@@ -4,7 +4,7 @@
 
 ## Interface Components: TextInput
 
-`window.InterfaceComponents.TextInput` replaces classic `<TextArea>`. Props: `value`, `onChange(value)`, `onCommit(value)` (blur / Enter / Cmd+Enter), `placeholder`, `multiline`, `minRows`, `maxRows`, `minLength`, `maxLength`, `showCharacterCount`, `label`, `regionId`, `readOnly`. Compound members: `TextInput.Counter`, `TextInput.RegionBadge`.
+`window.InterfaceComponents.TextInput` replaces classic `<TextArea>`. Props: `value`, `onChange(value)`, `onCommit(value)` (blur / Enter / Cmd+Enter), `commitMode` (auto, blur, enter, mod-enter; single-value mode), `placeholder`, `multiline`, `minRows`, `maxRows`, `minLength`, `maxLength`, `showCharacterCount`, `label`, `regionId`, `readOnly`. Compound members: `TextInput.Counter`, `TextInput.RegionBadge`.
 
 Result: `{ type: "textarea", value: { text: ["..."] } }`. Per-region transcriptions (classic `perRegion`) reuse the **region's id** as the result id and are stored on the region as `_transcription`; emit them as an extra `textarea` result with the same `id` next to the region's own result.
 
