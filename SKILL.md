@@ -39,7 +39,7 @@ node "<dir-of-this-SKILL.md>/scripts/resolve-flags.mjs"
 ```
 
 - **Follow the JSON state, Active References list, and Active Runtime Notes printed by `scripts/resolve-flags.mjs`.**
-- When `interfacesComponentsEnabled: true`, read `references/components-enabled/<module>.md` for the 7 dual-variant base modules (`core-contract`, `spatial-bounding`, `schemas-spatial`, `example-classification`, `example-ner`, `example-audio`, `styling-a11y`), read `references/components-contract.md` plus matching component modules, and start from matching `references/template-*.md` compositions.
+- When `interfacesComponentsEnabled: true`, read `references/components-enabled/<module>.md` for the 7 dual-variant base modules (`core-contract`, `spatial-bounding`, `schemas-spatial`, `example-classification`, `example-ner`, `example-audio`, `styling-a11y`), and read `references/components-contract.md` plus matching component modules.
 - When `scenariosEnabled: true`, also read `references/scenarios.md` and author `scenarios.js`.
 - When `collectionEnabled: true`, include `references/collection-upload.md` for file-submission interfaces.
 - **Fail-closed default:** when `LABEL_STUDIO_URL` / `LABEL_STUDIO_API_KEY` are unset, invalid, or offline (or before `scripts/resolve-flags.mjs` runs), all capabilities default to `false` — read only the conservative `references/<module>.md` base files below and follow the Flag-OFF runtime notes.
@@ -92,17 +92,6 @@ node "<dir-of-this-SKILL.md>/scripts/resolve-flags.mjs"
 | `references/text-canvas.md` | `interfacesComponentsEnabled: true` | Span labeling over plain text, HTML, or dialogue / transcript paragraphs (classic <Text>/<HyperText>/<Paragraphs> + <Labels>): resizable spans, symbol/word/sentence/paragraph granularity, virtualized long documents, transcripts synced to audio/video (syncGroup), author filter, shell-drawn relations. |
 | `references/document-canvas.md` | `interfacesComponentsEnabled: true` | Multi-page PDF / page-image OCR: boxes (rotatable), polygons, PDF text-layer selection (classic OcrLabels) with text auto-fill, per-region transcription, thumbnails and custom side-by-side layouts. |
 | `references/scenarios.md` | `scenariosEnabled: true` | Browser scenario module contract, tools, locators, execution, and behavioral verification. |
-| `references/template-audio-speech-processing.md` | `interfacesComponentsEnabled: true` | Component tree, params → fields and getResults / parseResults of the ready `audio-speech-processing` system template. |
-| `references/template-computer-vision.md` | `interfacesComponentsEnabled: true` | Component tree, params → fields and getResults / parseResults of the ready `computer-vision` system template. |
-| `references/template-conversational-ai.md` | `interfacesComponentsEnabled: true` | Component tree, params → fields and getResults / parseResults of the ready `conversational-ai` system template. |
-| `references/template-document-ocr.md` | `interfacesComponentsEnabled: true` | Component tree, params → fields and getResults / parseResults of the ready `document-ocr` system template. |
-| `references/template-images.md` | `interfacesComponentsEnabled: true` | Component tree, params → fields and getResults / parseResults of the ready `images` system template. |
-| `references/template-natural-language-processing.md` | `interfacesComponentsEnabled: true` | Component tree, params → fields and getResults / parseResults of the ready `natural-language-processing` system template. |
-| `references/template-ranking-and-scoring.md` | `interfacesComponentsEnabled: true` | Component tree, params → fields and getResults / parseResults of the ready `ranking-and-scoring` system template. |
-| `references/template-structured-data.md` | `interfacesComponentsEnabled: true` | Component tree, params → fields and getResults / parseResults of the ready `structured-data` system template. |
-| `references/template-time-series-analysis.md` | `interfacesComponentsEnabled: true` | Component tree, params → fields and getResults / parseResults of the ready `time-series-analysis` system template. |
-| `references/template-video-object-tracking.md` | `interfacesComponentsEnabled: true` | Component tree, params → fields and getResults / parseResults of the ready `video-object-tracking` system template. |
-| `references/template-videos.md` | `interfacesComponentsEnabled: true` | Component tree, params → fields and getResults / parseResults of the ready `videos` system template. |
 
 5. Read only the `references/reference.md` sections you need (start with
    **Schemas & sample data** whenever the UI reads `task.data`). Open
