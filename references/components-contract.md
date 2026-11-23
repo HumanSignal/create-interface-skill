@@ -119,9 +119,12 @@ Coordinates stay exactly as LS stores them (percent of the natural image/video s
 
 Compose them: canvases serialize their own regions, AnswerForm adds the answers, and relations come from `toRelationResults` (or the shell appends them when getResults emits none). The shell calls `getResults(regions, relations, { params })` — validators call it with two arguments, and Save validation round-trips every `outputSchema` key as an id-less, ungated Prompter prediction. So gate answers only when `ctx.params` is present — `answersToResults(regions, { toName, ...(ctx && ctx.params ? { fields: buildFields(ctx.params), params: ctx.params } : {}) })` — and parse with `resultsToAnswers(results, {})`; passing `fields` on the validation path drops gated answers and region answers without a target, failing `Annotation round-trip validation failed` (details in the AnswerForm skill). Example — boxes plus per-region and task-level answers, with no hand-written serializer:
 ```jsx
+// Each option list is written once: the field spec and its outputSchema enum both read the constant.
+const QUALITY_OPTIONS = ["Good", "Blurry"];
+const COLOR_OPTIONS = ["Red", "Blue"];
 const FIELDS = [
-  { name: "quality", kind: "choices", label: "Image quality", options: ["Good", "Blurry"], toName: "image" },
-  { name: "color", kind: "choices", scope: "region", label: "Car color", options: ["Red", "Blue"] },
+  { name: "quality", kind: "choices", label: "Image quality", options: QUALITY_OPTIONS, toName: "image" },
+  { name: "color", kind: "choices", scope: "region", label: "Car color", options: COLOR_OPTIONS },
 ];
 
 function Screen(props) {
@@ -164,8 +167,8 @@ function Screen(props) {
     type: "object",
     properties: {
       label: { type: "array", items: { type: "string", enum: ["Car", "Person"] } },
-      quality: { type: "string", enum: ["Good", "Blurry"] },
-      color: { type: "string", enum: ["Red", "Blue"] },
+      quality: { type: "string", enum: QUALITY_OPTIONS },
+      color: { type: "string", enum: COLOR_OPTIONS },
     },
   },
   getResults(regions, relations, ctx) {

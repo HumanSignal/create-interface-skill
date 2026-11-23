@@ -103,11 +103,15 @@ Helpers come from the AnswerForm chunk: `answersToResults(regions, { fields, toN
 
 ```jsx
 const TO_NAME = "image";
+// Each option list is written once: the field spec and its outputSchema enum both read the constant.
+const QUALITY_OPTIONS = ["Good", "Blurry"];
+const BLUR_REASONS = ["Motion", "Focus"];
+const COLOR_OPTIONS = ["Red", "Blue"];
 const FIELDS = [
-  { name: "quality", kind: "choices", label: "Image quality", required: true, options: ["Good", "Blurry"], toName: TO_NAME },
-  { name: "blur_reason", kind: "choices", label: "Why blurry?", options: ["Motion", "Focus"], toName: TO_NAME,
+  { name: "quality", kind: "choices", label: "Image quality", required: true, options: QUALITY_OPTIONS, toName: TO_NAME },
+  { name: "blur_reason", kind: "choices", label: "Why blurry?", options: BLUR_REASONS, toName: TO_NAME,
     when: { choice: { name: "quality", value: "Blurry" } } },
-  { name: "color", kind: "choices", scope: "region", label: "Car color", options: ["Red", "Blue"], when: { label: "Car" } },
+  { name: "color", kind: "choices", scope: "region", label: "Car color", options: COLOR_OPTIONS, when: { label: "Car" } },
   { name: "plate", kind: "textarea", scope: "region", label: "Plate text", required: true, when: { label: "Car" } },
   { name: "confidence", kind: "rating", scope: "region", label: "Confidence" },
 ];
@@ -168,9 +172,9 @@ function CarScreen(props) {
     type: "object",
     properties: {
       label: { type: "array", items: { type: "string", enum: ["Car"] } },
-      quality: { type: "string", enum: ["Good", "Blurry"] },
-      blur_reason: { type: "string", enum: ["Motion", "Focus"] },
-      color: { type: "string", enum: ["Red", "Blue"] },
+      quality: { type: "string", enum: QUALITY_OPTIONS },
+      blur_reason: { type: "string", enum: BLUR_REASONS },
+      color: { type: "string", enum: COLOR_OPTIONS },
       plate: { type: "string" },
       confidence: { type: "integer", minimum: 1, maximum: 5, "x-ls-type": "rating" },
     },

@@ -31,11 +31,15 @@ function formatTime(t) {
   return m + ":" + String(s).padStart(2, "0");
 }
 
+// The label list is written once. The screen, the InfoViewer panel, the paramsSchema default and the
+// outputSchema enum all read it, so renaming a speaker is a one-line change.
+const DEFAULT_LABELS = [
+  { name: "Speaker A", color: "#3b82f6" },
+  { name: "Speaker B", color: "#10b981" },
+];
+
 function AudioTimeSpanScreen(props) {
-  const labels = props.params?.labels ?? [
-    { name: "Speaker A", color: "#3b82f6" },
-    { name: "Speaker B", color: "#10b981" },
-  ];
+  const labels = props.params?.labels ?? DEFAULT_LABELS;
   const audioUrl = getField(props.task.data, props.params?.audioField) ?? "";
   const visibleRegions = props.visibleRegions ?? (props.regions || []).filter((r) => !r.hidden);
   const duration = Number(props.params?.duration) || 30;
@@ -111,10 +115,7 @@ function OutlinerItem(props) {
 function InfoViewer(props) {
   const { region, updateRegion, readOnly, params } = props;
   if (!region) return <div style={{ padding: 12, opacity: 0.7 }}>Select an audio span.</div>;
-  const labels = params?.labels ?? [
-    { name: "Speaker A", color: "#3b82f6" },
-    { name: "Speaker B", color: "#10b981" },
-  ];
+  const labels = params?.labels ?? DEFAULT_LABELS;
   const current = (region.labels || [])[0] || "";
   const start = Number(region._start) || 0;
   const end = Number(region._end) || start;
@@ -161,7 +162,7 @@ function InfoViewer(props) {
       audioField: { type: "dataField", default: "audio", description: "Task field with audio URL" },
       labels: {
         type: "labels",
-        default: [{ name: "Speaker A", color: "#3b82f6" }, { name: "Speaker B", color: "#10b981" }],
+        default: DEFAULT_LABELS,
         description: "Time-span labels",
       },
     },
@@ -178,7 +179,7 @@ function InfoViewer(props) {
       regions: {
         type: "array",
         description: "Labeled audio time spans",
-        items: { type: "string", enum: ["Speaker A", "Speaker B"], "$param": "labels" },
+        items: { type: "string", enum: DEFAULT_LABELS.map((l) => l.name), "$param": "labels" },
       },
     },
   },

@@ -9,6 +9,13 @@ When Interface Components are available, **use them** for labeling controls. Do 
 **Choice mode:** default text classification / sentiment to `choice="single"` (mutually exclusive). Use `choice="multiple"` only when the user asked to select several labels at once.
 
 ```js
+// The label list is written once; the fallback, paramsSchema default and outputSchema enum all read it.
+const DEFAULT_LABELS = [
+  { name: "Positive", color: "#10b981" },
+  { name: "Negative", color: "#ef4444" },
+  { name: "Neutral", color: "#6b7280" },
+];
+
 function upsertControlRegion(props, { fromName, toName, type, value, labels = [] }) {
   const existing = (props.regions || []).find((r) => r._fromName === fromName && r.type === type);
   const isEmpty =
@@ -44,11 +51,7 @@ function SentimentScreen(props) {
   const RatingControl = window.InterfaceComponents.RatingControl;
   const TextInput = window.InterfaceComponents.TextInput;
 
-  const labels = props.params?.labels ?? [
-    { name: "Positive", color: "#10b981" },
-    { name: "Negative", color: "#ef4444" },
-    { name: "Neutral", color: "#6b7280" },
-  ];
+  const labels = props.params?.labels ?? DEFAULT_LABELS;
   const text = getField(props.task.data, props.params?.textField) ?? "No text provided.";
 
   const sentiment = (props.regions || []).find((r) => r._fromName === "sentiment" && r.type === "choices");
@@ -199,11 +202,7 @@ function SentimentScreen(props) {
       },
       labels: {
         type: "labels",
-        default: [
-          { name: "Positive", color: "#10b981" },
-          { name: "Negative", color: "#ef4444" },
-          { name: "Neutral", color: "#6b7280" },
-        ],
+        default: DEFAULT_LABELS,
         description: "Classification labels",
       },
     },
@@ -226,7 +225,7 @@ function SentimentScreen(props) {
         type: "string",
         title: "Sentiment",
         description: "The sentiment classification label",
-        enum: ["Positive", "Negative", "Neutral"],
+        enum: DEFAULT_LABELS.map((l) => l.name),
         "$param": "labels",
       },
       confidence: {

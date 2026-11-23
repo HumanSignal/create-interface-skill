@@ -7,13 +7,16 @@
 For an NER / entity highlighting interface:
 
 ```js
+// The label list is written once; the fallback, paramsSchema default and outputSchema enum all read it.
+const DEFAULT_LABELS = [
+  { name: "Person", color: "#3b82f6" },
+  { name: "Organization", color: "#10b981" },
+  { name: "Location", color: "#f59e0b" },
+];
+
 function NerScreen(props) {
-  const labels = props.params?.labels ?? [
-    { name: "Person", color: "#3b82f6" },
-    { name: "Organization", color: "#10b981" },
-    { name: "Location", color: "#f59e0b" },
-  ];
-  const [activeLabel, setActiveLabel] = React.useState(labels[0] || { name: "Person", color: "#3b82f6" });
+  const labels = props.params?.labels ?? DEFAULT_LABELS;
+  const [activeLabel, setActiveLabel] = React.useState(labels[0] || DEFAULT_LABELS[0]);
   const sourceText = getField(props.task.data, props.params?.textField) ?? "";
   const visibleRegions = props.visibleRegions ?? (props.regions || []).filter(r => !r.hidden);
   const selectedRegionIds = props.selectedRegionIds ?? new Set(visibleRegions.filter(r => r.selected).map(r => r.id));
@@ -144,11 +147,7 @@ function NerScreen(props) {
       textField: { type: "dataField", default: "text", description: "Source text for entity extraction" },
       labels: {
         type: "labels",
-        default: [
-          { name: "Person", color: "#3b82f6" },
-          { name: "Organization", color: "#10b981" },
-          { name: "Location", color: "#f59e0b" },
-        ],
+        default: DEFAULT_LABELS,
         description: "Entity labels",
       },
     },
@@ -167,7 +166,7 @@ function NerScreen(props) {
         description: "Extracted named entities with spans",
         items: {
           type: "string",
-          enum: ["Person", "Organization", "Location"],
+          enum: DEFAULT_LABELS.map((l) => l.name),
           "$param": "labels",
         },
       },
