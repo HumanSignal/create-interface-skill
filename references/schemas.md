@@ -95,7 +95,7 @@ outputSchema: {
       type: "string",
       title: "Sentiment",
       description: "The sentiment classification",
-      enum: DEFAULT_LABELS.map((l) => l.name), // same top-level constant as paramsSchema.labels.default
+      enum: ["Positive", "Negative", "Neutral"],
       "$param": "labels",   // at runtime, enum is replaced with names from paramsSchema.labels
     },
   },
@@ -122,7 +122,7 @@ Rules:
 - Per-region follow-up answers must NOT use an undeclared sibling `from_name` (e.g. `"followUp"`). Put them on the parent field via `items.properties.answers` (or declare a real top-level outputSchema property). Emitting undeclared `from_name`s fails preview/submit validation (FIT-1979).
 - Date / time answers emit the classic DateTime result: `{ from_name, to_name, type: "datetime", value: { datetime: "2024-05-01T10:15:30" } }` — one result per entry for an array field. Declare the field with a date/time `format` as above; a `textarea` result on it also validates, but any other type (or `value.text` on a `datetime` result) fails submit (FIT-3069).
 - Use `$param` to link to a labels/choices param — put it directly on the field for single-choice, or on `items` for multi-choice arrays
-- Always provide `enum` alongside `$param`, derived from the constant that holds the default labels (`enum: DEFAULT_LABELS.map((l) => l.name)`), never a second literal copy of the list; the values get overridden at runtime
+- Always provide `enum` alongside `$param` with the default values (they get overridden at runtime)
 - Include `title` and `description` for each property — these help the LLM understand what to produce
 
 #### Conditional fields with `dependsOn`

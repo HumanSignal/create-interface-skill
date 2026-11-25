@@ -17,18 +17,8 @@ Output the complete code in a ```js code block, followed by sample task data in 
 - **artifact_rewrite** — Use only when more than 40% of the code needs to change. Rewrites the entire module.
 - Call the tool IMMEDIATELY with no preceding text.
 - **Apply vs refuse (FIT-2504):** Reading the live module is not the change. After `get_current_code` (or when the live module is already in the user message), you MUST call `artifact_str_replace` or `artifact_rewrite` in the **same turn** for any **in-module** request: canvas UI, labels, enums, schemas, `getResults` / `parseResults`, helpers, validation banners, `BottomBarExtra` copy — anything the screen module can express. If `old_str` is not found, call `get_current_code` and retry; do not invent a from-scratch rewrite and do not ask the user to paste code. **Refuse without editing** only for shell-owned chrome (checklist item 11: do not add/rename/remove Submit, Update, or custom `canSubmit`) or requests that the checklist forbids. A text-only explanation after a read is correct solely for those refusals — not for ordinary iterate/fix asks.
-- **Rename/remove options everywhere (FIT-2504):** Every option list (labels, choices, categories) is written **once**, as a top-level constant, and everything else derives from it (see "Keep requested labels in sync" below). To rename, add, or remove a value, change that one constant, plus any `getResults` / `parseResults` mapping that names the value. If the module has the list written out in more than one place (a component fallback, a `paramsSchema` default, an `outputSchema` `enum`, a legend, a second panel), merge the copies into one constant in the same edit; do not patch each copy. A UI-only rename passes validation but fails submit with "Output does not match outputSchema", and a half-updated copy shows annotators two different option sets.
+- **Rename/remove options everywhere (FIT-2504):** When renaming, adding, or removing a choice/option value, update **every** place that value lives in the same turn — UI option constants, `outputSchema` `enum` arrays, and `getResults` / `parseResults` mappings. Prefer deriving the `enum` from the same constant the UI renders so they cannot drift. A UI-only rename passes validation but fails submit with "Output does not match outputSchema".
 - **After the tool call** (user-facing chat summary): write a short plain-English summary of **annotator-visible behavior** — roughly 3–6 bullets or 2–4 short sentences. Align with plan language when a plan was approved (goal / layout / interactions / data fields). Describe what the annotator will see or do differently. Do NOT use file/diff jargon, tool names, invented multi-file layouts, or implementation internals (function names, schemas-as-code, patch mechanics). Keep it readable for non-engineers; skip design lectures.
-
-## When instructions conflict
-
-What the user asks for, the design system and the defaults in these instructions can disagree. Resolve it in this order:
-1. **Platform limits** — what the screen cannot do: the editor shell owns Submit / Update and the Info / Regions / Relations panels, results must match `outputSchema`, and an upload marker stays (see below). Tell the user the limit in one sentence and build the closest thing that works; never swap in something else silently.
-2. **The user's explicit request** — a layout, a control, a field name, a colour, a placement the user asked for. Build it, even when it departs from the design system or a default.
-3. **The design system** — the Label Studio tokens and styling rules in these instructions.
-4. **Defaults** in these instructions — layout patterns, 42px toolbars, spacing, wording.
-
-When following the user departs from 3 or 4, do it and say in one short sentence which convention it overrides, so they can change their mind. Never refuse, or quietly substitute your own layout, control or name, by citing these instructions. When it is unclear whether the user wants the departure (they described an outcome, not a specific design), ask with `plan_ask_questions` if Plan mode is on; otherwise build what is closest to their words and mention the alternative.
 
 In both modes (initial creation without tools): Do NOT explain implementation details, design decisions, or how things work — just the required code blocks.
 
@@ -107,7 +97,6 @@ Before calling artifact_create, artifact_str_replace, or artifact_rewrite, menta
 17. **Video frame timelines (FIT-2804 / FIT-2892)**: When the screen maps video `currentTime` to integer frames (`frameCount`, keyframes, `start_frame`/`end_frame`), use `EditorDeps.video.probeFrameRate` on `loadedmetadata` and `EditorDeps.video.resolveFrameCount` so the timeline does not undercount on a 24fps fallback or shrink after seeks. Keep React `currentFrame` / desired-frame intent authoritative and **re-apply** the seek after probe resolves so region clicks during Quick View load do not snap back to frame 1 (FIT-2892). See the `video-timeline` skill module.
 18. **Point shapes are editable (FIT-2940 / FIT-3047)**: If the screen draws polylines / `vectorlabels`, polygons or keypoints itself (not through an Interface Components canvas), copy the `beginPointDrag` helpers and wiring from `spatial-bounding` ("Editing vector, polyline and keypoint regions"). A selected region shows vertex handles; dragging a handle moves that point; dragging the shape moves all of it; Alt+click on a handle removes the point (minimum 2 points for polylines, 3 for polygons); each gesture commits one `updateRegion`; locked / read-only regions do not move. Click-to-select alone is not editing. **The same vertex editing must work in Drawing mode on the in-progress draft, before the region is finished** — do not wait for Enter / close (FIT-3047).
 19. **Change a region in place; respect locks (FIT-3076)**: To change a region's value — switching a single choice, relabeling, editing text — call `props.updateRegion(id, patch)` on the existing region. **Never delete + re-add a region to change its value.** The shell rejects `updateRegion` / `deleteRegion` on a locked region (`region.locked`) but cannot tell that a fresh `addRegion` is a replacement, so delete + add on a locked single-choice region keeps the old choice and adds a second one. Disable the controls bound to a locked region (`disabled` / `readOnly` = `props.readOnly || region?.locked`).
-20. **Every image keeps its navigation tools (FIT-3082)**: Any screen that shows an image — image classification, multi-image / gallery / pager screens, before/after comparisons, even with no drawing tools — must give each displayed image the tools the classic image editor always shows: **Pan** (drag), **Zoom in** / **Zoom out** with the zoom %, and the **Fit** (Shift+1) / **100%** (Shift+2) presets (plus **Select** when the screen draws regions). A bare `<img>` scaled with CSS, or a pager whose only controls are Prev / Next, is incomplete. Build them from the copyable FIT-3066 image navigation helpers in `spatial-bounding` ("Image navigation & selection tools (FIT-3066)"); a pager drives one shared viewport and resets it to Fit when the image changes.
 
 ## Component ordering (type badge)
 
@@ -228,7 +217,11 @@ paramsSchema: {
   properties: {
     labels: {
       type: "labels",
-      default: DEFAULT_LABELS, // the top-level constant, below
+      default: [
+        { name: "Category A", color: "#10b981" },
+        { name: "Category B", color: "#ef4444" },
+        { name: "Category C", color: "#6b7280" },
+      ],
       description: "Classification labels"
     },
   },
@@ -239,40 +232,11 @@ The `"labels"` type is a custom type for annotation labels. Each entry has a `na
 
 ### Keep requested labels in sync (FIT-3064)
 
-**One definition per option list.** Declare each label / choice / category list exactly once, as a top-level constant above the screen function, and derive every other use from it:
+When the user names the allowed labels or categories, use exactly that set everywhere. Treat labels shown in examples or the `interface init` starter (such as Positive / Negative / Neutral) as placeholders; never carry them into a different task. Update the `paramsSchema.labels.default`, any fallback label constant used by the component, and every `outputSchema` enum / `$param` mapping in the same edit. Do not leave starter labels in a fallback that appears when params are empty. Before finishing, run `label-studio-sdk interface validate <Screen.jsx>` and search the complete module for every label being replaced, including constants, `paramsSchema` defaults, and `outputSchema` enums. If the user reports that the preview still shows old labels, tell them to reload the preview page.
 
+In the component, read labels via:
 ```js
-const DEFAULT_LABELS = [
-  { name: "Category A", color: "#10b981" },
-  { name: "Category B", color: "#ef4444" },
-  { name: "Category C", color: "#6b7280" },
-];
-
-function Screen(props) {
-  const labels = props.params?.labels ?? DEFAULT_LABELS; // resolve once; pass `labels` to every part that shows options
-  // ...
-}
-
-({
-  default: Screen,
-  paramsSchema: { type: "object", properties: { labels: { type: "labels", default: DEFAULT_LABELS, description: "Classification labels" } } },
-  outputSchema: { type: "object", properties: {
-    category: { type: "string", enum: DEFAULT_LABELS.map((l) => l.name), "$param": "labels" },
-  } },
-  // getResults / parseResults ...
-})
-```
-
-- Never write the list out again as a literal: not in a second panel, legend, summary, hotkey hint or `InfoViewer`, not in `paramsSchema.default`, not in an `outputSchema` enum. Every part of the screen that shows the options renders from the resolved `labels` (pass it as a prop, or resolve `props.params?.labels ?? DEFAULT_LABELS` again). Copies drift: a later edit updates one, and annotators see two different option sets or submit fails against the stale enum.
-- Lists that are not params follow the same rule: `const QUALITY_OPTIONS = ["Good", "Blurry"]` used by both the AnswerForm field (`options: QUALITY_OPTIONS`) and its enum (`enum: QUALITY_OPTIONS`).
-- When you edit a module that already has copies, merge them into one constant in that edit.
-- Never rename a param key (e.g. `labels` → `errorLabels`) to make a new default show up. A project or the Config tab may hold a saved value for that key, and renaming detaches the interface from it. Keep the key; the saved value is updated separately (the in-app agent uses `set_params`; an author edits the Config tab).
-
-When the user names the allowed labels or categories, use exactly that set: replace the values in the constant. Treat labels shown in examples or the `interface init` starter (such as Positive / Negative / Neutral) as placeholders; never carry them into a different task, and do not leave starter labels in a fallback that appears when params are empty. Before finishing, run `label-studio-sdk interface validate <Screen.jsx>` and search the complete module for every label you replaced: each should appear exactly once, in the constant. If the user reports that the preview still shows old labels, tell them to reload the preview page.
-
-Reading labels in the component:
-```js
-const labels = props.params?.labels ?? DEFAULT_LABELS;
+const labels = props.params?.labels ?? [];
 // Each label: { name: "Category A", color: "#10b981" }
 // With key: { key: "category_a", name: "Category A", color: "#10b981" }
 // To get just names: labels.map(l => l.name)

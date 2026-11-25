@@ -7,15 +7,12 @@
 For a sentiment analysis or text classification interface:
 
 ```js
-// The label list is written once; the fallback, paramsSchema default and outputSchema enum all read it.
-const DEFAULT_LABELS = [
-  { name: "Positive", color: "#10b981" },
-  { name: "Negative", color: "#ef4444" },
-  { name: "Neutral", color: "#6b7280" },
-];
-
 function SentimentScreen(props) {
-  const labels = props.params?.labels ?? DEFAULT_LABELS;
+  const labels = props.params?.labels ?? [
+    { name: "Positive", color: "#10b981" },
+    { name: "Negative", color: "#ef4444" },
+    { name: "Neutral", color: "#6b7280" },
+  ];
   const text = getField(props.task.data, props.params?.textField) ?? "No text provided.";
   const selected = (props.regions || []).find(r => r.type === "choices");
   const disabled = props.readOnly || !!selected?.locked;
@@ -89,7 +86,11 @@ function SentimentScreen(props) {
       },
       labels: {
         type: "labels",
-        default: DEFAULT_LABELS,
+        default: [
+          { name: "Positive", color: "#10b981" },
+          { name: "Negative", color: "#ef4444" },
+          { name: "Neutral", color: "#6b7280" },
+        ],
         description: "Classification labels",
       },
     },
@@ -111,7 +112,7 @@ function SentimentScreen(props) {
         type: "string",
         title: "Sentiment",
         description: "The sentiment classification label",
-        enum: DEFAULT_LABELS.map((l) => l.name),
+        enum: ["Positive", "Negative", "Neutral"],
         "$param": "labels",
       },
     },
