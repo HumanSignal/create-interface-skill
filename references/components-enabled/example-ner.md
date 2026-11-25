@@ -87,11 +87,11 @@ function NerScreen(props) {
           style={{
             background: region.colors?.[0] || "var(--color-primary-surface)",
             outline: selected ? "2px solid var(--color-primary-border)" : "none",
-            borderRadius: 3, padding: "1px 2px", cursor: "pointer",
+            borderRadius: "var(--corner-radius-smaller)", padding: "0 var(--spacing-tightest)", cursor: "pointer",
           }}
         >
           <span data-source-start={start}>{text.slice(start, end)}</span>
-          <span aria-hidden="true" style={{ marginLeft: 4, fontSize: 10, fontWeight: 600, userSelect: "none" }}>
+          <span aria-hidden="true" style={{ marginLeft: "var(--spacing-tightest)", fontSize: 10, fontWeight: 600, userSelect: "none" }}>
             {(region.labels || [])[0] || "Entity"}
           </span>
         </mark>
@@ -109,8 +109,30 @@ function NerScreen(props) {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: 24 }}>
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+    <main
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        minHeight: 0,
+        background: "var(--color-neutral-background)",
+        color: "var(--color-neutral-content)",
+      }}
+    >
+      {/* The label toolbar is attached to the text it labels: no title, no gap, no extra box. */}
+      <div
+        role="toolbar"
+        aria-label="Entity labels"
+        style={{
+          flex: "0 0 42px",
+          display: "flex",
+          alignItems: "center",
+          gap: "var(--spacing-tight)",
+          padding: "0 var(--spacing-base)",
+          borderBottom: "1px solid var(--color-neutral-border)",
+          background: "var(--color-neutral-surface)",
+        }}
+      >
         {(labels || []).map(label => (
           <EditorUI.Button key={label.name}
             type="button"
@@ -128,14 +150,11 @@ function NerScreen(props) {
       </div>
       <div
         onMouseUp={handleMouseUp}
-        style={{
-          padding: 20, borderRadius: 8, border: "1px solid var(--color-neutral-border)",
-          background: "var(--color-neutral-surface)", fontSize: 14, lineHeight: 1.8,
-        }}
+        style={{ flex: 1, minHeight: 0, overflow: "auto", padding: "var(--spacing-base)", fontSize: 14, lineHeight: 1.8 }}
       >
-        {renderNerText()}
+        <div style={{ maxWidth: "72ch" }}>{renderNerText()}</div>
       </div>
-    </div>
+    </main>
   );
 }
 

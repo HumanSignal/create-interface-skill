@@ -62,15 +62,9 @@ function SentimentScreen(props) {
     explanation ? (explanation._value?.text || [])[0] || explanation.text || "" : "",
   );
 
-  const sectionStyle = {
-    display: "flex",
-    flexDirection: "column",
-    gap: "var(--spacing-tight)",
-    padding: "var(--spacing-base)",
-    background: "var(--color-neutral-surface)",
-    border: "1px solid var(--color-neutral-border)",
-    borderRadius: "var(--corner-radius-small)",
-  };
+  // The text is the content: it gets the space and needs no title. Every answer sits together in one quiet area
+  // below it, each question labeled by its own small field label.
+  const fieldStyle = { display: "flex", flexDirection: "column", gap: "var(--spacing-tight)" };
 
   return (
     <main
@@ -79,112 +73,118 @@ function SentimentScreen(props) {
         flexDirection: "column",
         height: "100%",
         minHeight: 0,
-        overflow: "auto",
-        padding: "var(--spacing-base)",
-        gap: "var(--spacing-base)",
         background: "var(--color-neutral-background)",
         color: "var(--color-neutral-content)",
         fontFamily: "var(--font-family-base)",
       }}
     >
-      <section aria-labelledby="review-heading" style={sectionStyle}>
-        <EditorUI.Typography id="review-heading" as="h3" variant="title" size="small" style={{ margin: 0 }}>
-          Review
-        </EditorUI.Typography>
-        <EditorUI.Typography variant="body" size="small" style={{ margin: 0, whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
+      <div style={{ flex: 1, minHeight: 0, overflow: "auto", padding: "var(--spacing-base)" }}>
+        <EditorUI.Typography
+          variant="body"
+          size="small"
+          style={{ margin: 0, whiteSpace: "pre-wrap", lineHeight: 1.6, maxWidth: "72ch" }}
+        >
           {text}
         </EditorUI.Typography>
-      </section>
+      </div>
 
-      <section aria-labelledby="sentiment-heading" style={sectionStyle}>
-        <EditorUI.Typography id="sentiment-heading" as="h3" variant="title" size="small" style={{ margin: 0 }}>
-          Sentiment
-        </EditorUI.Typography>
-        <ChoiceGroup
-          choices={(labels || []).map((l) => ({ value: l.name, background: l.color }))}
-          value={sentiment ? sentiment._value?.choices || sentiment.labels : []}
-          choice="single"
-          layout="chips"
-          readOnly={props.readOnly || !!sentiment?.locked}
-          hotkeys={props.hotkeys}
-          onChange={(next) =>
-            upsertControlRegion(props, {
-              fromName: "sentiment",
-              toName: "text",
-              type: "choices",
-              value: { choices: next },
-              labels: next,
-            })
-          }
-        />
-      </section>
+      <section
+        aria-label="Answers"
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "var(--spacing-base)",
+          padding: "var(--spacing-base)",
+          borderTop: "1px solid var(--color-neutral-border)",
+          background: "var(--color-neutral-surface)",
+        }}
+      >
+        <div style={fieldStyle}>
+          <EditorUI.Typography id="sentiment-label" as="span" variant="title" size="small" style={{ margin: 0 }}>
+            Sentiment
+          </EditorUI.Typography>
+          <ChoiceGroup
+            ariaLabelledBy="sentiment-label"
+            choices={(labels || []).map((l) => ({ value: l.name, background: l.color }))}
+            value={sentiment ? sentiment._value?.choices || sentiment.labels : []}
+            choice="single"
+            layout="chips"
+            readOnly={props.readOnly || !!sentiment?.locked}
+            hotkeys={props.hotkeys}
+            onChange={(next) =>
+              upsertControlRegion(props, {
+                fromName: "sentiment",
+                toName: "text",
+                type: "choices",
+                value: { choices: next },
+                labels: next,
+              })
+            }
+          />
+        </div>
 
-      <section aria-labelledby="confidence-heading" style={sectionStyle}>
-        <EditorUI.Typography id="confidence-heading" as="h3" variant="title" size="small" style={{ margin: 0 }}>
-          Confidence
-        </EditorUI.Typography>
-        <NumberInput
-          label="Confidence %"
-          slider
-          min={0}
-          max={100}
-          step={5}
-          value={confidence ? confidence._value?.number : 50}
-          readOnly={props.readOnly}
-          onChange={(n) =>
-            upsertControlRegion(props, {
-              fromName: "confidence",
-              toName: "text",
-              type: "number",
-              value: { number: n },
-            })
-          }
-        />
-      </section>
+        <div style={fieldStyle}>
+          <NumberInput
+            label="Confidence %"
+            slider
+            min={0}
+            max={100}
+            step={5}
+            value={confidence ? confidence._value?.number : 50}
+            readOnly={props.readOnly}
+            onChange={(n) =>
+              upsertControlRegion(props, {
+                fromName: "confidence",
+                toName: "text",
+                type: "number",
+                value: { number: n },
+              })
+            }
+          />
+        </div>
 
-      <section aria-labelledby="rating-heading" style={sectionStyle}>
-        <EditorUI.Typography id="rating-heading" as="h3" variant="title" size="small" style={{ margin: 0 }}>
-          Star rating
-        </EditorUI.Typography>
-        <RatingControl
-          type="stars"
-          max={5}
-          allowClear
-          value={rating ? rating._value?.rating : null}
-          readOnly={props.readOnly}
-          hotkeys={props.hotkeys}
-          onChange={(n) =>
-            upsertControlRegion(props, {
-              fromName: "rating",
-              toName: "text",
-              type: "rating",
-              value: { rating: n },
-            })
-          }
-        />
-      </section>
+        <div style={fieldStyle}>
+          <EditorUI.Typography id="rating-label" as="span" variant="title" size="small" style={{ margin: 0 }}>
+            Star rating
+          </EditorUI.Typography>
+          <RatingControl
+            ariaLabelledBy="rating-label"
+            type="stars"
+            max={5}
+            allowClear
+            value={rating ? rating._value?.rating : null}
+            readOnly={props.readOnly}
+            hotkeys={props.hotkeys}
+            onChange={(n) =>
+              upsertControlRegion(props, {
+                fromName: "rating",
+                toName: "text",
+                type: "rating",
+                value: { rating: n },
+              })
+            }
+          />
+        </div>
 
-      <section aria-labelledby="explanation-heading" style={sectionStyle}>
-        <EditorUI.Typography id="explanation-heading" as="h3" variant="title" size="small" style={{ margin: 0 }}>
-          Explanation
-        </EditorUI.Typography>
-        <TextInput
-          label="Explanation"
-          multiline
-          minRows={3}
-          placeholder="Evidence supporting your decision…"
-          value={explanationDraft}
-          readOnly={props.readOnly}
-          onChange={setExplanationDraft}
-          onCommit={(textValue) =>
-            upsertControlRegion(props, {
-              fromName: "explanation",
-              toName: "text",
-              type: "textarea",
-              value: { text: textValue ? [textValue] : [] },
-            })
-          }
-        />
+        <div style={fieldStyle}>
+          <TextInput
+            label="Explanation"
+            multiline
+            minRows={3}
+            placeholder="Evidence supporting your decision…"
+            value={explanationDraft}
+            readOnly={props.readOnly}
+            onChange={setExplanationDraft}
+            onCommit={(textValue) =>
+              upsertControlRegion(props, {
+                fromName: "explanation",
+                toName: "text",
+                type: "textarea",
+                value: { text: textValue ? [textValue] : [] },
+              })
+            }
+          />
+        </div>
       </section>
     </main>
   );

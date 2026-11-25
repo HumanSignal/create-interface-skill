@@ -45,7 +45,19 @@ function AudioTimeSpanScreen(props) {
   const duration = Number(props.params?.duration) || 30;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", gap: 8, padding: 16 }}>
+    <main
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        minHeight: 0,
+        gap: "var(--spacing-tight)",
+        padding: "var(--spacing-base)",
+        background: "var(--color-neutral-background)",
+        color: "var(--color-neutral-content)",
+      }}
+    >
+      {/* The player and its waveform are one block: no title, they explain themselves. */}
       <audio src={audioUrl} controls style={{ width: "100%" }} />
       <div data-relation-anchor="" style={{ position: "relative", height: 96, background: "var(--color-neutral-background)" }}>
         <canvas width={640} height={96} style={{ width: "100%", height: "100%" }} />
@@ -70,7 +82,7 @@ function AudioTimeSpanScreen(props) {
           );
         })}
       </div>
-    </div>
+    </main>
   );
 }
 
@@ -97,11 +109,11 @@ function OutlinerItem(props) {
       style={{
         display: "flex",
         alignItems: "center",
-        gap: 8,
-        padding: "6px 8px",
+        gap: "var(--spacing-tight)",
+        padding: "var(--spacing-tighter) var(--spacing-tight)",
         cursor: "pointer",
-        borderRadius: 4,
-        background: isSelected ? "rgba(59,130,246,0.12)" : "transparent",
+        borderRadius: "var(--corner-radius-smaller)",
+        background: isSelected ? "var(--color-primary-background)" : "transparent",
       }}
     >
       <span style={{ width: 8, height: 8, borderRadius: 2, background: (region.colors || [])[0] || "#3b82f6", flexShrink: 0 }} />
@@ -114,7 +126,7 @@ function OutlinerItem(props) {
 /** Content-only details — shell adds Lock/Hide/Delete (FIT-2246). No Delete Span button here. */
 function InfoViewer(props) {
   const { region, updateRegion, readOnly, params } = props;
-  if (!region) return <div style={{ padding: 12, opacity: 0.7 }}>Select an audio span.</div>;
+  if (!region) return <div style={{ padding: "var(--spacing-base)", opacity: 0.7 }}>Select an audio span.</div>;
   const labels = params?.labels ?? DEFAULT_LABELS;
   const current = (region.labels || [])[0] || "";
   const start = Number(region._start) || 0;
@@ -122,9 +134,9 @@ function InfoViewer(props) {
   const editable = !readOnly && !region.locked;
 
   return (
-    <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+    <div style={{ padding: "var(--spacing-base)", display: "flex", flexDirection: "column", gap: "var(--spacing-base)" }}>
       <div style={{ fontSize: 12, opacity: 0.7 }}>Label</div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--spacing-tighter)" }}>
         {labels.map((label) => (
           <EditorUI.Button
             key={label.name}
