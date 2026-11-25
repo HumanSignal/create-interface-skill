@@ -1167,6 +1167,12 @@ Applies to Interface Builder `generate_sample_data`, SDK `task.json` /
 - Prefer `/static/interface-agent-assets/...` for media (e.g. `nasa-earthrise-lro.jpg`).
 - Image arrays: **`.jpg` only** (never `.mp4` / `.mp3` in an image list).
 - Video / audio fields: `.mp4` / `.mp3` respectively.
+- Timed fields must fall inside the media they point into: transcript / paragraph
+  `start`, `end` and `duration`, and audio / video region times. The approved clips
+  are short: `nps-rain-devils-postpile.mp3` is 4.97 s and
+  `nps-grand-canyon-hopi-point.mp4` is 24.57 s. Keep every `start` below the
+  duration and every `end` at or below it (e.g. three paragraphs over the rain clip:
+  0–1.6, 1.6–3.3, 3.3–4.9). A paragraph that starts after the media ends has nothing to play.
 - The host may rewrite mismatched media URLs to the declared modality.
 
 ### `GridCell` (component)

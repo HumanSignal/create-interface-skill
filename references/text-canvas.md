@@ -107,6 +107,7 @@ function TranscriptScreen(props) {
 }
 ```
 - `data.dialogue` items look like `{ "author": "Agent", "text": "How can I help?", "start": 1.2, "end": 3.4 }` (classic Paragraphs data). Untimed items still render and can be labeled; they just have no ▶.
+- Keep every paragraph `start` inside the audio's duration, and every `end` at or below it (the approved `nps-rain-devils-postpile.mp3` sample is only 4.97 s). A paragraph that starts at or after the end of the media has nothing to play: TextCanvas disables its ▶ and timestamp buttons and explains why in their label.
 - Transcript-only audio: skip AudioCanvas / MediaTransport and pass `audioUrl={data.audio}` + `showPlayer` to TextCanvas.
 
 - Do NOT compute offsets from `window.getSelection()` yourself; TextCanvas already emits LS-exact offsets. Do NOT subscribe to the audio time to highlight paragraphs — `syncGroup` does it.
