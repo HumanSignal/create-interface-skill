@@ -56,6 +56,7 @@ The code is evaluated as a function body with `React`, `useState`, `useRef`, `us
 
 1. Write the dynamic screen module in the first turn.
 2. After the code passes validation, call **generate_sample_data** with a `sample_data` object keyed by every `dataField` `default` task path (matching `dataType`).
+   On a follow-up edit, call it only when the user asks for different data or the edit adds or changes a `dataField`. Otherwise the preview keeps the data the user is working with (an attached sample, their Input edits, data asked for earlier): never trim, restructure or replace it.
 3. Use approved `/static/interface-agent-assets/...` paths from the system prompt for media examples.
 
 Before calling artifact_create, artifact_str_replace, or artifact_rewrite, mentally verify:
