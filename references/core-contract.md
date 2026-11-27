@@ -215,6 +215,10 @@ const BottomBarExtra = (props) => {
 })
 ```
 
+### Modifier keys: Cmd on macOS, Ctrl elsewhere
+
+Shortcuts with a modifier use the platform modifier: Cmd on macOS, Ctrl on Windows and Linux. When the user writes "Ctrl or Cmd", "Ctrl/Cmd" or asks for the standard zoom, undo or save shortcuts, bind both, never Ctrl alone. In a raw `keydown` handler accept either key with `(e.ctrlKey || e.metaKey) && (e.key === "=" || e.key === "+")` (never `e.ctrlKey` alone) and call `e.preventDefault()` so the browser does not zoom the page instead. Name both in hints and tooltips ("Ctrl/⌘ +").
+
 ## Configuration via paramsSchema
 
 For values a project admin would want to customize — label lists, category names,

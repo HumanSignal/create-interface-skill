@@ -320,6 +320,11 @@ The editor shell passes the user's active keybindings and project overrides into
 - **Modifier Normalization:** Normalizes `cmd`, `ctrl`, `shift`, `alt`, and symbols across operating systems.
 - **Dynamic Project Overrides:** Respects user remappings saved in Project Settings without modifying interface code.
 
+### Modifier keys: Cmd on macOS, Ctrl elsewhere
+
+Shortcuts with a modifier use the platform modifier: Cmd on macOS, Ctrl on Windows and Linux. When the user writes "Ctrl or Cmd", "Ctrl/Cmd" or asks for the standard zoom, undo or save shortcuts, bind both, never Ctrl alone. In a raw `keydown` handler accept either key with `(e.ctrlKey || e.metaKey) && (e.key === "=" || e.key === "+")` (never `e.ctrlKey` alone) and call `e.preventDefault()` so the browser does not zoom the page instead. Name both in hints and tooltips ("Ctrl/⌘ +").
+- In a hotkeys manifest or `useComponentHotkeys` binding, write `mod+=` / `mod+-`: `mod` is Cmd on macOS and Ctrl elsewhere. One action takes exactly one combo: comma lists such as "ctrl+=,cmd+=" are not supported in a Custom Interface and never fire on Cmd. When both keys must work on every platform, declare two actions that call the same handler, one with `ctrl+=` and one with `cmd+=`.
+
 ## Configuration via paramsSchema
 
 For values a project admin would want to customize — label lists, category names,
