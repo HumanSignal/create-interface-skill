@@ -6,7 +6,7 @@
 
 `window.InterfaceComponents.VideoCanvas` provides tracked bounding boxes and time-range activity labels over one video. It owns playback, frame stepping, keyframe interpolation, and hotkeys. Canonical annotation state stays in the Screen's controlled props.
 
-Props: `src`, `frameRate`, `regions`, `selectedRegionIds`, `onAddRegion`, `onUpdateRegion`, `onDeleteRegion`, `onSelectRegion(id | null, { additive })`, `activeLabels`, `activeTimelineLabels`, `labelColors`, `fromName`, `toName`, `timelineFromName`, `enableTimelineLabels`, `activeTool` ("select" | "rectangle") + `onToolChange`, `showTimeline`, `showObjectTimeline`, `showActivityTimeline`, `showToolbar`, `showLayers` (default false; shell Outliner owns the region list), `playbackRates`, `onTimeUpdate(time, duration)`, `onFrameUpdate(frame)`, `syncGroup` + `syncOffset`, `minZoom` / `maxZoom`, `readOnly`, `hotkeys`.
+Props: `src`, `frameRate`, `regions`, `selectedRegionIds`, `onAddRegion`, `onUpdateRegion`, `onDeleteRegion`, `onSelectRegion(id | null, { additive })`, `activeLabels`, `activeTimelineLabels`, `labelColors`, `fromName`, `toName`, `timelineFromName`, `enableTimelineLabels`, `activeTool` ("select" | "rectangle") + `onToolChange`, `showTimeline`, `showObjectTimeline`, `showActivityTimeline`, `showToolbar`, `showLayers` (default false; shell Outliner owns the region list; a user-requested Screen list uses RegionList), `playbackRates`, `onTimeUpdate(time, duration)`, `onFrameUpdate(frame)`, `syncGroup` + `syncOffset`, `minZoom` / `maxZoom`, `readOnly`, `hotkeys`.
 
 ### Two timelines under the video
 
@@ -72,7 +72,7 @@ The helpers map a valid nonnegative safe-integer `item_index` to `_itemIndex`, i
 - **No Delete buttons in slots.** `onDeleteRegion` is for the canvas's own delete gestures. The shell already renders Lock / Hide / Delete around `InfoViewer` and `OutlinerItem`, so those exports render content only — never a "Delete polygon" / "Delete box" / trash button (FIT-2931).
 - **Never discard unlabeled regions.** If nothing is selected in the LabelPicker the region is created with `labels: []`; relabel it later with `props.updateRegion(id, { labels, colors })` (always update `colors` with `labels`).
 - **Hydrate with colors.** In `parseResults`, pass `{ labelColors }` into `from*Results` (or stamp `colors` afterward). The Regions panel has no `labelColors` fallback — empty `colors` means gray chips.
-- **Do not show the in-canvas LayerManager.** `showLayers` defaults to false. Leave it off (and do not mount `*.LayerManager`) — the editor-shell Outliner / Regions panel is the region list.
+- **Do not show the in-canvas LayerManager.** `showLayers` defaults to false. Leave it off (and do not mount `*.LayerManager`) — the editor-shell Outliner / Regions panel is the region list. When the user asks for a region list in the Screen, build it with `RegionList` wired to the shell props (see the RegionList module), not `showLayers`.
 - Pass the real frame rate: probe it with `EditorDeps.video.probeFrameRate` (see the video-timeline module) and hand the result to `frameRate`; do not assume 24.
 
 ```jsx

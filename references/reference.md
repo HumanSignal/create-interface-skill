@@ -456,7 +456,7 @@ All generated custom interfaces **must** seamlessly support both Light Mode and 
      }
      ```
 3. **No custom sidepanels / duplicate UI:**
-   - The LSE screen already features native sidebars for outliners and inspectors. **Do not** generate a custom sidebar or sidepanel structure (like a list of regions or a separate details form) inside your main component canvas.
+   - The LSE screen already features native sidebars for outliners and inspectors. **Do not** generate a custom sidebar or sidepanel structure (like a list of regions or a separate details form) inside your main component canvas unless the user explicitly asks for one. When they do, build it (never refuse) and keep it in sync with the shell: rows from `props.regions`, selection through `props.selectRegion` / `props.selectedRegionIds`, hide / delete through `props.updateRegion` / `props.deleteRegion`.
    - Duplicate list controls or custom panels inside the main screen clutter the view and are notoriously difficult to style consistently across light/dark modes.
    - Instead, map these details onto the native slots via `OutlinerItem` and `InfoViewer` sibling exports.
 4. **JS-based theme detection (when CSS is insufficient):**
@@ -513,6 +513,11 @@ Why this matters:
   inspector" almost always splits cleanly: list → `OutlinerItem`,
   inspector → `InfoViewer`, summary → either drop or move to a thin
   in-canvas strip.
+- When the user explicitly asks for the list, an inspector list or a
+  region search inside the Screen itself, build it there (never refuse):
+  rows from `props.regions`, selection via `props.selectRegion` /
+  `props.selectedRegionIds`, hide / delete via `props.updateRegion` /
+  `props.deleteRegion`, so it stays in sync with the Regions panel.
 - `OutlinerItem` and `InfoViewer` receive full `DynamicScreenProps` plus
   the region, so they can mutate via `addRegion` / `updateRegion` /
   `deleteRegion` for *content* edits. They are real React components in
@@ -1449,7 +1454,7 @@ the labeling output should be (→ drives `getResults` and `outputSchema`).
 - **`/* eslint-disable */` and `/* global ... */` headers** at the top of
   every source file — strip them; they're prototype scaffolding.
 - **`window.parent.postMessage(...)`** for edit-mode handshakes — strip.
-- **No redundant sidebar event/region lists.** Rely on the platform's native Regions sidebar panel for selection, visibility toggle, and deletion. Keep the custom interface sidebar simple (e.g. only label palette and details of the currently selected event) instead of duplicating the region lists.
+- **No unrequested sidebar event/region lists.** Rely on the platform's native Regions sidebar panel for selection, visibility toggle, and deletion. Keep the custom interface sidebar simple (e.g. only label palette and details of the currently selected event) instead of duplicating the region lists — unless the user explicitly asks for a list, inspector or search in the Screen; then build it in sync with the shell (`props.regions`, `props.selectedRegionIds`, `props.selectRegion`, `props.updateRegion`, `props.deleteRegion`) and never refuse.
 
 ## Streaming Audio & Video Waveform Interfaces
 
